@@ -99,7 +99,7 @@ func (h *Server) handleTCPConnection(connection net.Conn) {
 				return
 			}
 			if h.Logging {
-				log.Printf("RPCServer message received: messageType %v; messageID: %v; length: %v;", messageType, messageID, length)
+				log.Printf("RPCServer message: messageID %v; length %v;", messageID, length)
 			}
 			go h.handleTCPConnectionBytes(connection, message, messageType, messageID) //running different calls in different routines
 		}
@@ -114,7 +114,7 @@ func (h *Server) handleTCPConnection(connection net.Conn) {
 				return
 			}
 			if h.Logging {
-				log.Printf("RPCServer message received: messageType %v; messageID: %v; length: %v;", messageType, messageID, length)
+				log.Printf("RPCServer message: messageID %v; length %v;", messageID, length)
 			}
 			h.handleTCPConnectionBytes(connection, message, messageType, messageID)
 			return
@@ -124,7 +124,7 @@ func (h *Server) handleTCPConnection(connection net.Conn) {
 }
 
 func (h *Server) handleTCPConnectionBytes(connection net.Conn, message []byte, messageType uint64, messageID uint64) {
-	r, err := h.HandleBytes(message)
+	r, err := h.HandleBytes(message, messageID)
 	if err != nil {
 		if h.Logging {
 			log.Println("RPCServer HandleBytes", err)
@@ -135,7 +135,7 @@ func (h *Server) handleTCPConnectionBytes(connection net.Conn, message []byte, m
 	}
 }
 
-func (h *Server) HandleBytes(bodyBytes []byte) ([]byte, error) {
+func (h *Server) HandleBytes(bodyBytes []byte, messageID uint64) ([]byte, error) {
 	input := []*inputPartial{}
 	bodyBytesStr := string(bodyBytes)
 	//log.Println("bodyBytesStr", bodyBytesStr)
@@ -165,7 +165,7 @@ func (h *Server) HandleBytes(bodyBytes []byte) ([]byte, error) {
 		go func(i int, inputItem *inputPartial) {
 			defer wg.Done()
 			if h.Logging {
-				log.Println("RPCServer method", inputItem.Method)
+				log.Printf("RPCServer run method: messageID %v; method %v", messageID, inputItem.Method)
 			}
 			method, err := h.Get(inputItem.Method)
 			if err != nil {
@@ -262,7 +262,7 @@ func (h *Server) HandleHTTP(w http.ResponseWriter, r *http.Request) {
 			sendApiError(w, err)
 			return
 		}
-		resultJSON, err := h.HandleBytes(bodyBytes)
+		resultJSON, err := h.HandleBytes(bodyBytes, 0)
 		if err != nil {
 			sendApiError(w, err)
 			return
