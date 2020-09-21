@@ -17,6 +17,7 @@ type Server struct {
 	sync.Map
 	KeepAlive   bool
 	AllowOrigin string
+	Logging     bool
 }
 
 type methodHandler struct {
@@ -90,18 +91,30 @@ type OutputError struct {
 func (h *Server) handleTCPConnection(connection net.Conn) {
 	if h.KeepAlive {
 		for {
-			message, messageType, messageID, err := packets.Parse(connection)
+			message, messageType, messageID, length, err := packets.Parse(connection)
 			if err != nil {
+				if h.Logging {
+					log.Println("RPCServer packets.Parse", err)
+				}
 				return
+			}
+			if h.Logging {
+				log.Printf("RPCServer message received: messageType %v; messageID: %v; length: %v;", messageType, messageID, length)
 			}
 			go h.handleTCPConnectionBytes(connection, message, messageType, messageID) //running different calls in different routines
 		}
 	} else {
 		defer connection.Close()
 		for {
-			message, messageType, messageID, err := packets.Parse(connection)
+			message, messageType, messageID, length, err := packets.Parse(connection)
 			if err != nil {
+				if h.Logging {
+					log.Println("RPCServer packets.Parse", err)
+				}
 				return
+			}
+			if h.Logging {
+				log.Printf("RPCServer message received: messageType %v; messageID: %v; length: %v;", messageType, messageID, length)
 			}
 			h.handleTCPConnectionBytes(connection, message, messageType, messageID)
 			return
@@ -113,7 +126,9 @@ func (h *Server) handleTCPConnection(connection net.Conn) {
 func (h *Server) handleTCPConnectionBytes(connection net.Conn, message []byte, messageType uint64, messageID uint64) {
 	r, err := h.HandleBytes(message)
 	if err != nil {
-		log.Println("h.HandleBytes", err)
+		if h.Logging {
+			log.Println("RPCServer HandleBytes", err)
+		}
 		connection.Write(packets.Create([]byte(`{"error":"internal server error"}`), messageType, messageID))
 	} else {
 		connection.Write(packets.Create(r, messageType, messageID))
@@ -125,19 +140,22 @@ func (h *Server) HandleBytes(bodyBytes []byte) ([]byte, error) {
 	bodyBytesStr := string(bodyBytes)
 	//log.Println("bodyBytesStr", bodyBytesStr)
 	arrayInput := false
-	if bodyBytesStr[0] == '[' {
+	firstSymbol := bodyBytesStr[0]
+	if firstSymbol == '[' {
 		err := json.Unmarshal(bodyBytes, &input)
 		if err != nil {
 			return nil, err
 		}
 		arrayInput = true
-	} else {
+	} else if firstSymbol == '{' {
 		input1 := &inputPartial{}
-		err := json.Unmarshal(bodyBytes, &input1)
+		err := json.Unmarshal(bodyBytes, input1)
 		if err != nil {
 			return nil, err
 		}
 		input = append(input, input1)
+	} else {
+		return nil, fmt.Errorf("firstSymbol is not a json part")
 	}
 
 	wg := sync.WaitGroup{}
@@ -146,6 +164,9 @@ func (h *Server) HandleBytes(bodyBytes []byte) ([]byte, error) {
 	for i, inputItem := range input {
 		go func(i int, inputItem *inputPartial) {
 			defer wg.Done()
+			if h.Logging {
+				fmt.Println("RPCServer method", inputItem.Method)
+			}
 			method, err := h.Get(inputItem.Method)
 			if err != nil {
 				results[i] = &Output{Error: &OutputError{Message: err.Error()}}

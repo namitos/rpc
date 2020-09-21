@@ -36,7 +36,7 @@ func (h *TCPClient) Call(context context.Context, input *[]Input, result *[]Outp
 	if err != nil {
 		return err
 	}
-	response, _, _, err := packets.Send(body, 0, 0, h.URL)
+	response, _, _, _, err := packets.Send(body, 0, 0, h.URL)
 	if err != nil {
 		return err
 	}
@@ -84,7 +84,7 @@ func (h *TCPClientKeepAlive) Connect() error {
 	}
 	h.Connection = connection
 	for {
-		response, _, msgID, err := packets.Parse(h.Connection)
+		response, _, msgID, _, err := packets.Parse(h.Connection)
 		if err != nil {
 			return err
 		}
