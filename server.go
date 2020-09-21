@@ -165,7 +165,7 @@ func (h *Server) HandleBytes(bodyBytes []byte) ([]byte, error) {
 		go func(i int, inputItem *inputPartial) {
 			defer wg.Done()
 			if h.Logging {
-				fmt.Println("RPCServer method", inputItem.Method)
+				log.Println("RPCServer method", inputItem.Method)
 			}
 			method, err := h.Get(inputItem.Method)
 			if err != nil {
