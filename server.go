@@ -88,6 +88,11 @@ type OutputError struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
+func (e *OutputError) Error() string {
+	eJSON, _ := json.Marshal(e)
+	return string(eJSON)
+}
+
 func (h *Server) handleTCPConnection(connection net.Conn) {
 	if h.KeepAlive {
 		for {
