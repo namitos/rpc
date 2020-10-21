@@ -141,6 +141,9 @@ func (h *Server) handleTCPConnectionBytes(connection net.Conn, message []byte, m
 }
 
 func (h *Server) HandleBytes(bodyBytes []byte, messageID uint64) ([]byte, error) {
+	if len(bodyBytes) == 0 {
+		return nil, fmt.Errorf("zero bytes handled")
+	}
 	input := []*inputPartial{}
 	bodyBytesStr := string(bodyBytes)
 	//log.Println("bodyBytesStr", bodyBytesStr)
