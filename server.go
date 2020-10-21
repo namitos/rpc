@@ -134,7 +134,8 @@ func (h *Server) handleTCPConnectionBytes(connection net.Conn, message []byte, m
 		if h.Logging {
 			log.Println("RPCServer HandleBytes", err)
 		}
-		connection.Write(packets.Create([]byte(`{"error":"internal server error"}`), messageType, messageID))
+		errJSON, _ := json.Marshal(map[string]interface{}{"error": err.Error(), "messageID": messageID})
+		connection.Write(packets.Create(errJSON, messageType, messageID))
 	} else {
 		connection.Write(packets.Create(r, messageType, messageID))
 	}
