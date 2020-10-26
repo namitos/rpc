@@ -64,6 +64,15 @@ func (h *Server) Get(name string) (*methodHandler, error) {
 	return method1, nil
 }
 
+func (h *Server) GetAllMethods() []string {
+	methods := []string{}
+	h.Range(func(k, v interface{}) bool {
+		methods = append(methods, k.(string))
+		return true
+	})
+	return methods
+}
+
 type Input struct {
 	Method  string      `json:"method"`
 	Params  interface{} `json:"params"`
@@ -263,7 +272,15 @@ func (h *Server) HandleHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("{}"))
 		return
 	}
-
+	if r.Method == "GET" {
+		resultJSON, err := json.Marshal(h.GetAllMethods())
+		if err != nil {
+			sendApiError(w, err)
+			return
+		}
+		w.Write(resultJSON)
+		return
+	}
 	if r.Method == "POST" {
 		bodyBytes, err := ioutil.ReadAll(r.Body)
 		defer r.Body.Close()
