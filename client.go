@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -151,6 +151,9 @@ func (h *HTTPClient) call(context context.Context, input, result interface{}) er
 		return err
 	}
 	req, err := http.NewRequestWithContext(context, "POST", h.URL, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
 	req.Header.Add("Content-Type", "application/json; charset=utf-8")
 	if h.Username != "" && h.Password != "" {
 		req.SetBasicAuth(h.Username, h.Password)
@@ -168,7 +171,7 @@ func (h *HTTPClient) call(context context.Context, input, result interface{}) er
 	if err != nil {
 		return err
 	}
-	body, err = ioutil.ReadAll(res.Body)
+	body, err = io.ReadAll(res.Body)
 	defer res.Body.Close()
 	if err != nil {
 		return err

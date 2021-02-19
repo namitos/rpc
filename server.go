@@ -3,7 +3,7 @@ package rpc
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -282,7 +282,7 @@ func (h *Server) HandleHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method == "POST" {
-		bodyBytes, err := ioutil.ReadAll(r.Body)
+		bodyBytes, err := io.ReadAll(r.Body)
 		defer r.Body.Close()
 		if err != nil {
 			sendApiError(w, err)
