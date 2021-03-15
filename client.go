@@ -135,10 +135,11 @@ func (h *TCPClientKeepAlive) Call(ctx context.Context, input *[]Input, result *[
 }
 
 type HTTPClient struct {
-	URL      string
-	Username string
-	Password string
-	Proxy    string
+	URL       string
+	Username  string
+	Password  string
+	Proxy     string
+	Transport *http.Transport
 }
 
 func (h *HTTPClient) Call(context context.Context, input *[]Input, result *[]Output) error {
@@ -158,7 +159,12 @@ func (h *HTTPClient) call(context context.Context, input, result interface{}) er
 	if h.Username != "" && h.Password != "" {
 		req.SetBasicAuth(h.Username, h.Password)
 	}
-	transport := &http.Transport{}
+	var transport *http.Transport
+	if h.Transport == nil {
+		transport = &http.Transport{}
+	} else {
+		transport = h.Transport
+	}
 	if h.Proxy != "" {
 		proxyURL, err := url.Parse(h.Proxy)
 		if err != nil {
