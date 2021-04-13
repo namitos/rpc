@@ -15,9 +15,9 @@ import (
 
 type Server struct {
 	sync.Map
-	KeepAlive   bool
-	AllowOrigin string
-	Logging     bool
+	KeepAlive    bool
+	AllowOrigins []string
+	Logging      bool
 }
 
 type methodHandler struct {
@@ -252,12 +252,22 @@ func sendApiError(w http.ResponseWriter, err error) {
 func (h *Server) setCORSHeaders(w http.ResponseWriter, r *http.Request) bool {
 	setDefaultHeaders(w)
 	headers := w.Header()
-	allowOrigin := h.AllowOrigin
-	if allowOrigin == "" {
+	allowOrigins := h.AllowOrigins
+	allowOrigin := ""
+	origin := headers.Get("Origin")
+	if len(allowOrigins) == 0 {
 		allowOrigin = "*"
+	} else {
+		for _, o := range allowOrigins {
+			if o == origin {
+				allowOrigin = o
+				break
+			}
+		}
 	}
-	headers.Set("Access-Control-Allow-Origin", allowOrigin)
-	//headers.Set("Access-Control-Allow-Credentials", "true")
+	if allowOrigin != "" {
+		headers.Set("Access-Control-Allow-Origin", allowOrigin)
+	}
 	if r.Method == "OPTIONS" {
 		headers.Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
 		headers.Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
