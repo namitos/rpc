@@ -251,7 +251,7 @@ func sendApiError(w http.ResponseWriter, err error) {
 
 func (h *Server) setCORSHeaders(w http.ResponseWriter, r *http.Request) bool {
 	setDefaultHeaders(w)
-	headers := w.Header()
+	headers := r.Header
 	allowOrigins := h.AllowOrigins
 	allowOrigin := ""
 	origin := headers.Get("Origin")
