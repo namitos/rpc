@@ -12,9 +12,7 @@ import (
 	"github.com/namitos/rpc/packets"
 )
 
-type Client interface {
-	Call(context context.Context, input *[]Input, result *[]Output) error
-}
+
 
 func NewTCPClient(URL string) Client {
 	client := &TCPClient{
