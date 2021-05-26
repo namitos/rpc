@@ -14,20 +14,27 @@ type testData struct {
 
 //TODO: make real test
 func TestRPC(t *testing.T) {
-	RPCMethods := &Server{KeepAlive: true}
+	RPCMethods := &Server{}
 	RPCMethods.Set("test", func(td *testData) (*testData, error) {
 		log.Println("received", td)
-		time.Sleep(1 * time.Second)
+		time.Sleep(15 * time.Second)
 		return td, nil
 	})
 	go func() {
-		RPCMethods.ListenTCP("8001")
+		time.AfterFunc(time.Second*10, func() {
+			err := RPCMethods.CloseTCP()
+			log.Println("closed", err)
+		})
+		err := RPCMethods.ListenTCP("8001")
+		if err != nil {
+			log.Println(err)
+		}
 	}()
 
-	time.AfterFunc(10000000, func() {
+	time.AfterFunc(time.Millisecond, func() {
 		client := NewTCPClientKeepAlive("127.0.0.1:8001")
 
-		time.AfterFunc(10000000, func() {
+		time.AfterFunc(time.Millisecond, func() {
 			wg := &sync.WaitGroup{}
 			wg.Add(100)
 			for i := 0; i < 100; i++ {
@@ -35,15 +42,12 @@ func TestRPC(t *testing.T) {
 					defer wg.Done()
 					result := &testData{}
 					t := time.Now().UnixNano()
-					ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+					ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 					defer cancel()
 					err := client.Call(ctx, &[]Input{{
 						Method: "test",
 						Params: map[string]int64{"Time": t},
 					}}, &[]Output{{Result: result}})
-					if err != nil {
-						log.Println(err)
-					}
 					log.Println(err, t, result.Time, i)
 				}(i)
 			}

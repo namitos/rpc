@@ -12,38 +12,6 @@ import (
 	"github.com/namitos/rpc/packets"
 )
 
-
-
-func NewTCPClient(URL string) Client {
-	client := &TCPClient{
-		URL: URL,
-	}
-	return client
-}
-
-type TCPClient struct {
-	URL string
-}
-
-func (h *TCPClient) Call(context context.Context, input *[]Input, result *[]Output) error {
-	body, err := json.Marshal(input)
-	if err != nil {
-		return err
-	}
-	response, _, _, _, err := packets.Send(body, 0, 0, h.URL)
-	if err != nil {
-		return err
-	}
-	if err = json.Unmarshal(response, result); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (h *TCPClient) CallSingle(ctx context.Context, method string, params interface{}, result interface{}) error {
-	return CallSingle(h, ctx, method, params, result)
-}
-
 func NewTCPClientKeepAlive(URL string) Client {
 	client := &TCPClientKeepAlive{
 		URL:                URL,
@@ -69,7 +37,16 @@ func (h *TCPClientKeepAlive) KeepAlive() {
 	h.Connection = nil
 	if err != nil {
 		log.Println("tcp connection disconnected", err)
-		time.AfterFunc(10*time.Millisecond, func() {
+		h.WaitingResponsesMu.Lock()
+		for msgID, channel := range h.WaitingResponses {
+			delete(h.WaitingResponses, msgID)
+			if channel != nil {
+				channel <- []byte{} //TODO: send real error; now cannot parse empty json
+				close(channel)
+			}
+		}
+		h.WaitingResponsesMu.Unlock()
+		time.AfterFunc(100*time.Millisecond, func() {
 			h.KeepAlive()
 		})
 	}

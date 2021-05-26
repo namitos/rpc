@@ -15,9 +15,11 @@ import (
 
 type Server struct {
 	sync.Map
-	KeepAlive    bool
 	AllowOrigins []string
 	Logging      bool
+
+	listener net.Listener
+	closed   bool
 }
 
 type methodHandler struct {
@@ -103,37 +105,18 @@ func (e *OutputError) Error() string {
 }
 
 func (h *Server) handleTCPConnection(connection net.Conn) {
-	if h.KeepAlive {
-		for {
-			message, messageType, messageID, length, err := packets.Parse(connection)
-			if err != nil {
-				if h.Logging {
-					log.Println("RPCServer packets.Parse", err)
-				}
-				return
-			}
+	for {
+		message, messageType, messageID, length, err := packets.Parse(connection)
+		if err != nil {
 			if h.Logging {
-				log.Printf("RPCServer message: messageID %v; length %v;", messageID, length)
+				log.Println("RPCServer packets.Parse", err)
 			}
-			go h.handleTCPConnectionBytes(connection, message, messageType, messageID) //running different calls in different routines
-		}
-	} else {
-		defer connection.Close()
-		for {
-			message, messageType, messageID, length, err := packets.Parse(connection)
-			if err != nil {
-				if h.Logging {
-					log.Println("RPCServer packets.Parse", err)
-				}
-				return
-			}
-			if h.Logging {
-				log.Printf("RPCServer message: messageID %v; length %v;", messageID, length)
-			}
-			h.handleTCPConnectionBytes(connection, message, messageType, messageID)
 			return
 		}
-
+		if h.Logging {
+			log.Printf("RPCServer message: messageID %v; length %v;", messageID, length)
+		}
+		go h.handleTCPConnectionBytes(connection, message, messageType, messageID) //running different calls of single connection in different routines
 	}
 }
 
@@ -324,15 +307,28 @@ func (h *Server) ListenTCP(port string) error {
 	if err != nil {
 		return err
 	}
+	h.listener = l
+	h.closed = false
 	log.Println("RPCServer.ListenTCP", port)
-	defer l.Close()
+	defer h.listener.Close()
 	for {
-		connection, err := l.Accept()
+		if h.listener == nil {
+			return fmt.Errorf("listener not exists")
+		}
+		connection, err := h.listener.Accept()
 		if err != nil {
-			log.Println("connection accept error", err)
+			if h.Logging {
+				log.Println("connection accept error", err)
+			}
 			continue
 		}
 		go h.handleTCPConnection(connection)
 	}
 	return nil
+}
+
+func (h *Server) CloseTCP() error {
+	err := h.listener.Close()
+	h.listener = nil
+	return err
 }
