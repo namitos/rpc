@@ -57,17 +57,13 @@ func (h *HTTPClient) call(context context.Context, input, result interface{}) er
 	if err != nil {
 		return err
 	}
-	body, err = io.ReadAll(res.Body)
 	defer res.Body.Close()
-	if err != nil {
-		return err
-	}
 	if res.StatusCode != 200 {
+		body, err = io.ReadAll(res.Body)
+		if err != nil {
+			return err
+		}
 		return fmt.Errorf(string(body))
 	}
-	err = json.Unmarshal(body, result)
-	if err != nil {
-		return err
-	}
-	return nil
+	return json.NewDecoder(res.Body).Decode(result)
 }
