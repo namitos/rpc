@@ -138,17 +138,14 @@ func (h *Server) HandleBytes(bodyBytes []byte, messageID uint64) ([]byte, error)
 		return nil, fmt.Errorf("zero bytes handled")
 	}
 	input := []*inputPartial{}
-	bodyBytesStr := string(bodyBytes)
-	//log.Println("bodyBytesStr", bodyBytesStr)
 	arrayInput := false
-	firstSymbol := bodyBytesStr[0]
-	if firstSymbol == '[' {
+	if bodyBytes[0] == 91 { //'['
 		err := json.Unmarshal(bodyBytes, &input)
 		if err != nil {
 			return nil, err
 		}
 		arrayInput = true
-	} else if firstSymbol == '{' {
+	} else if bodyBytes[0] == 123 { //'{'
 		input1 := &inputPartial{}
 		err := json.Unmarshal(bodyBytes, input1)
 		if err != nil {
