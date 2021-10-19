@@ -27,16 +27,16 @@ type methodHandler struct {
 	InputType reflect.Type
 }
 
-func (h *methodHandler) UnmarshalInput(inputMessage *json.RawMessage) (*reflect.Value, error) {
+func (h *methodHandler) UnmarshalInput(inputMessage json.RawMessage) (reflect.Value, error) {
 	input := reflect.New(h.InputType)
 	if inputMessage == nil {
-		return &input, nil
+		return input, nil
 	}
-	err := json.Unmarshal([]byte(*inputMessage), input.Interface())
+	err := json.Unmarshal(inputMessage, input.Interface())
 	if err != nil {
-		return nil, err
+		return reflect.Value{}, err
 	}
-	return &input, nil
+	return input, nil
 }
 
 func (h *Server) Set(name string, fn interface{}) {
@@ -57,17 +57,17 @@ func (h *Server) Set(name string, fn interface{}) {
 func (h *Server) Get(name string) (*methodHandler, error) {
 	method, ok := h.Load(name)
 	if !ok {
-		return nil, fmt.Errorf("Method not found")
+		return nil, fmt.Errorf("method not found")
 	}
 	method1, ok := method.(*methodHandler)
 	if !ok {
-		return nil, fmt.Errorf("Method not found")
+		return nil, fmt.Errorf("method not found")
 	}
 	return method1, nil
 }
 
 func (h *Server) GetAllMethods() []string {
-	methods := []string{}
+	var methods []string
 	h.Range(func(k, v interface{}) bool {
 		methods = append(methods, k.(string))
 		return true
@@ -78,13 +78,13 @@ func (h *Server) GetAllMethods() []string {
 type Input struct {
 	Method  string      `json:"method"`
 	Params  interface{} `json:"params"`
-	Jsonrpc string      `json:"jsonrpc,omitempty"`
+	JsonRPC string      `json:"jsonrpc,omitempty"`
 	ID      string      `json:"id,omitempty"`
 }
 
 type inputPartial struct {
-	Method string           `json:"method"`
-	Params *json.RawMessage `json:"params"`
+	Method string          `json:"method"`
+	Params json.RawMessage `json:"params"`
 }
 
 type Output struct {
@@ -137,8 +137,9 @@ func (h *Server) HandleBytes(bodyBytes []byte, messageID uint64) ([]byte, error)
 	if len(bodyBytes) == 0 {
 		return nil, fmt.Errorf("zero bytes handled")
 	}
-	input := []*inputPartial{}
-	arrayInput := false
+	var input []*inputPartial
+	var arrayInput bool
+
 	if bodyBytes[0] == 91 { //'['
 		err := json.Unmarshal(bodyBytes, &input)
 		if err != nil {
@@ -175,7 +176,7 @@ func (h *Server) HandleBytes(bodyBytes []byte, messageID uint64) ([]byte, error)
 				results[i] = &Output{Error: &OutputError{Message: err.Error()}}
 				return
 			}
-			out := reflect.ValueOf(method.Fn).Call([]reflect.Value{*params})
+			out := reflect.ValueOf(method.Fn).Call([]reflect.Value{params})
 			result := out[0].Interface()
 			errInterface := out[1].Interface()
 			if errInterface != nil {
@@ -321,7 +322,6 @@ func (h *Server) ListenTCP(port string) error {
 		}
 		go h.handleTCPConnection(connection)
 	}
-	return nil
 }
 
 func (h *Server) CloseTCP() error {
