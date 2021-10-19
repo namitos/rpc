@@ -74,7 +74,7 @@ func (h *TCPClientKeepAlive) Connect() error {
 	}
 }
 
-func (h *TCPClientKeepAlive) Call(ctx context.Context, input *[]Input, result *[]Output) error {
+func (h *TCPClientKeepAlive) Call(ctx context.Context, input []Input, result *[]Output) error {
 	if h.Connection == nil {
 		return fmt.Errorf("client not connected")
 	}

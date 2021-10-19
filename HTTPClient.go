@@ -18,7 +18,7 @@ type HTTPClient struct {
 	Transport *http.Transport
 }
 
-func (h *HTTPClient) Call(context context.Context, input *[]Input, result *[]Output) error {
+func (h *HTTPClient) Call(context context.Context, input []Input, result *[]Output) error {
 	return h.call(context, input, result)
 }
 

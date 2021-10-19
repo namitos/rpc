@@ -44,7 +44,7 @@ func TestRPC(t *testing.T) {
 					t := time.Now().UnixNano()
 					ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 					defer cancel()
-					err := client.Call(ctx, &[]Input{{
+					err := client.Call(ctx, []Input{{
 						Method: "test",
 						Params: map[string]int64{"Time": t},
 					}}, &[]Output{{Result: result}})
