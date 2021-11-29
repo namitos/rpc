@@ -12,61 +12,67 @@ import (
 	"github.com/namitos/rpc/packets"
 )
 
-func NewTCPClientKeepAlive(URL string) Client {
-	client := &TCPClientKeepAlive{
-		URL:                URL,
-		WaitingResponses:   map[uint64]chan []byte{},
-		WaitingResponsesMu: sync.Mutex{},
+func NewTCPClient(URL string) Client {
+	client := &TCPClient{
+		URL: URL,
 	}
 	go client.KeepAlive()
 	return client
 }
 
-type TCPClientKeepAlive struct {
-	URL                string
-	Connection         net.Conn
-	WaitingResponses   map[uint64]chan []byte
-	WaitingResponsesMu sync.Mutex
-	Counter            uint64
+type TCPClient struct {
+	URL               string
+	ReconnectInterval time.Duration
+
+	waitingResponses   map[uint64]chan []byte
+	waitingResponsesMu sync.Mutex
+	connection         net.Conn
+	counter            uint64
 }
 
 //KeepAlive recursive reconnects if disconnected
-func (h *TCPClientKeepAlive) KeepAlive() {
+func (h *TCPClient) KeepAlive() {
 	log.Println("connecting to", h.URL)
 	err := h.Connect()
-	h.Connection = nil
+	h.connection = nil
 	if err != nil {
 		log.Println("tcp connection disconnected", err)
-		h.WaitingResponsesMu.Lock()
-		for msgID, channel := range h.WaitingResponses {
-			delete(h.WaitingResponses, msgID)
+		h.waitingResponsesMu.Lock()
+		for msgID, channel := range h.waitingResponses {
+			delete(h.waitingResponses, msgID)
 			if channel != nil {
 				channel <- []byte{} //TODO: send real error; now cannot parse empty json
 				close(channel)
 			}
 		}
-		h.WaitingResponsesMu.Unlock()
-		time.AfterFunc(100*time.Millisecond, func() {
+		h.waitingResponsesMu.Unlock()
+		if h.ReconnectInterval == 0 {
+			h.ReconnectInterval = time.Second
+		}
+		time.AfterFunc(h.ReconnectInterval, func() {
 			h.KeepAlive()
 		})
 	}
 }
 
-func (h *TCPClientKeepAlive) Connect() error {
+func (h *TCPClient) Connect() error {
 	connection, err := net.Dial("tcp", h.URL)
 	if err != nil {
 		return err
 	}
-	h.Connection = connection
+	h.connection = connection
+	if h.waitingResponses == nil {
+		h.waitingResponses = map[uint64]chan []byte{}
+	}
 	for {
-		response, _, msgID, _, err := packets.Parse(h.Connection)
+		response, _, msgID, _, err := packets.Parse(h.connection)
 		if err != nil {
 			return err
 		}
-		h.WaitingResponsesMu.Lock()
-		channel := h.WaitingResponses[msgID]
-		delete(h.WaitingResponses, msgID)
-		h.WaitingResponsesMu.Unlock()
+		h.waitingResponsesMu.Lock()
+		channel := h.waitingResponses[msgID]
+		delete(h.waitingResponses, msgID)
+		h.waitingResponsesMu.Unlock()
 		if channel != nil {
 			channel <- response
 			close(channel)
@@ -74,8 +80,8 @@ func (h *TCPClientKeepAlive) Connect() error {
 	}
 }
 
-func (h *TCPClientKeepAlive) Call(ctx context.Context, input []Input, result *[]Output) error {
-	if h.Connection == nil {
+func (h *TCPClient) Call(ctx context.Context, input []Input, result *[]Output) error {
+	if h.connection == nil {
 		return fmt.Errorf("client not connected")
 	}
 	body, err := json.Marshal(input)
@@ -83,12 +89,12 @@ func (h *TCPClientKeepAlive) Call(ctx context.Context, input []Input, result *[]
 		return err
 	}
 	channel := make(chan []byte)
-	h.WaitingResponsesMu.Lock()
-	h.Counter++
-	msgID := h.Counter
-	h.WaitingResponses[msgID] = channel
-	h.WaitingResponsesMu.Unlock()
-	h.Connection.Write(packets.Create(body, 0, msgID))
+	h.waitingResponsesMu.Lock()
+	h.counter++
+	msgID := h.counter
+	h.waitingResponses[msgID] = channel
+	h.waitingResponsesMu.Unlock()
+	h.connection.Write(packets.Create(body, 0, msgID))
 	var response []byte
 	select {
 	case response = <-channel:
@@ -100,15 +106,15 @@ func (h *TCPClientKeepAlive) Call(ctx context.Context, input []Input, result *[]
 		}
 	case <-ctx.Done():
 		{
-			h.WaitingResponsesMu.Lock()
-			delete(h.WaitingResponses, msgID)
+			h.waitingResponsesMu.Lock()
+			delete(h.waitingResponses, msgID)
 			close(channel)
-			h.WaitingResponsesMu.Unlock()
+			h.waitingResponsesMu.Unlock()
 			return ctx.Err()
 		}
 	}
 }
 
-func (h *TCPClientKeepAlive) CallSingle(ctx context.Context, method string, params interface{}, result interface{}) error {
+func (h *TCPClient) CallSingle(ctx context.Context, method string, params interface{}, result interface{}) error {
 	return CallSingle(h, ctx, method, params, result)
 }

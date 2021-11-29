@@ -32,12 +32,12 @@ func TestRPC(t *testing.T) {
 	}()
 
 	time.AfterFunc(time.Millisecond, func() {
-		client := NewTCPClientKeepAlive("127.0.0.1:8001")
+		client := NewTCPClient("127.0.0.1:8001")
 
 		time.AfterFunc(time.Millisecond, func() {
 			wg := &sync.WaitGroup{}
-			wg.Add(100)
-			for i := 0; i < 100; i++ {
+			wg.Add(10)
+			for i := 0; i < 10; i++ {
 				go func(i int) {
 					defer wg.Done()
 					result := &testData{}
