@@ -145,6 +145,9 @@ func (h *Server) HandleBytes(bodyBytes []byte, messageID uint64) ([]byte, error)
 		if err != nil {
 			return nil, err
 		}
+		if len(input) == 0 { //skip wg and avoid json.Marshal panic with nil input
+			return []byte("[]"), nil
+		}
 		arrayInput = true
 	} else if bodyBytes[0] == 123 { //'{'
 		input1 := &inputPartial{}
