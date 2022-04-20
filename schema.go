@@ -6,27 +6,27 @@ import (
 
 type Schema struct {
 	Info struct {
-		Description string `json:"description"`
+		Description string `json:"description,omitempty"`
 		License     struct {
-			Name string `json:"name"`
-			URL  string `json:"url"`
-		} `json:"license"`
-		Title   string `json:"title"`
-		Version string `json:"version"`
-	} `json:"info"`
-	OpenRPC string          `json:"openrpc"`
-	Methods []*MethodSchema `json:"methods"`
+			Name string `json:"name,omitempty"`
+			URL  string `json:"url,omitempty"`
+		} `json:"license,omitempty"`
+		Title   string `json:"title,omitempty"`
+		Version string `json:"version,omitempty"`
+	} `json:"info,omitempty"`
+	OpenRPC string          `json:"openrpc,omitempty"`
+	Methods []*MethodSchema `json:"methods,omitempty"`
 }
 
 type MethodSchema struct {
-	Name    string              `json:"name"`
-	Summary string              `json:"summary"`
-	Params  []MethodSchemaParam `json:"params"`
-	Result  MethodSchemaParam   `json:"result"`
+	Name    string              `json:"name,omitempty"`
+	Summary string              `json:"summary,omitempty"`
+	Params  []MethodSchemaParam `json:"params,omitempty"`
+	Result  MethodSchemaParam   `json:"result,omitempty"`
 }
 
 type MethodSchemaParam struct {
-	Name     string         `json:"name"`
-	Required bool           `json:"required"`
-	Schema   *schema.Schema `json:"schema"`
+	Name     string         `json:"name,omitempty"`
+	Required bool           `json:"required,omitempty"`
+	Schema   *schema.Schema `json:"schema,omitempty"`
 }

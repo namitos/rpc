@@ -50,10 +50,14 @@ func (h *Server) Set(name string, fn interface{}) {
 	if in.Kind() != reflect.Ptr {
 		log.Fatalf("%v first argument should be a Ptr type", name)
 	}
+	resultType := fnType.Out(0)
+	if resultType.Kind() == reflect.Ptr {
+		resultType = resultType.Elem()
+	}
 	h.Store(name, &methodHandler{
 		Fn:         fn,
 		InputType:  in.Elem(),
-		ResultType: fnType.Out(0).Elem(),
+		ResultType: resultType,
 	})
 }
 
