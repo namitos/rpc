@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/namitos/rpc/packets"
+	"github.com/namitos/rpc/schema"
 )
 
 type Server struct {
@@ -23,8 +24,9 @@ type Server struct {
 }
 
 type methodHandler struct {
-	Fn        interface{}
-	InputType reflect.Type
+	Fn         interface{}
+	InputType  reflect.Type
+	ResultType reflect.Type
 }
 
 func (h *methodHandler) UnmarshalInput(inputMessage json.RawMessage) (reflect.Value, error) {
@@ -49,8 +51,9 @@ func (h *Server) Set(name string, fn interface{}) {
 		log.Fatalf("%v first argument should be a Ptr type", name)
 	}
 	h.Store(name, &methodHandler{
-		Fn:        fn,
-		InputType: in.Elem(),
+		Fn:         fn,
+		InputType:  in.Elem(),
+		ResultType: fnType.Out(0).Elem(),
 	})
 }
 
@@ -64,6 +67,25 @@ func (h *Server) Get(name string) (*methodHandler, error) {
 		return nil, fmt.Errorf("method not found")
 	}
 	return method1, nil
+}
+
+func (h *Server) GetMethodSchema(name string) (*MethodSchema, error) {
+	mh, err := h.Get(name)
+	if err != nil {
+		return nil, err
+	}
+	inputTypeItem := reflect.New(mh.InputType)
+	return &MethodSchema{
+		Name: name,
+		Params: []MethodSchemaParam{{
+			Name:     "Params",
+			Schema:   schema.Get(inputTypeItem),
+			Required: true,
+		}},
+		Result: MethodSchemaParam{
+			Schema: schema.Get(reflect.New(mh.ResultType)),
+		},
+	}, nil
 }
 
 func (h *Server) GetAllMethods() []string {
