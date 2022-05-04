@@ -14,7 +14,7 @@ type TestType1 struct {
 }
 
 type TestType struct {
-	Location   [2]float64         `label:"Location label" json:"location" weight:"123" validate:"required"`
+	Location   [2]float64         `label:"Location label" json:"location" weight:"123" validate:"required" enum:"adfs,fsdf,gdfgdh,"`
 	ExampleMap map[string]float64 `label:"exampleMap label" json:"exampleMap" widget:"custom-map-input,images,sortable,URLPrefix=/asdasd/,cols=5,zz=2.2"`
 	Child      *TestType1
 }

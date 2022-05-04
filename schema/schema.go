@@ -11,8 +11,9 @@ type Schema struct {
 	Label          string             `json:"label,omitempty"`
 	Properties     map[string]*Schema `json:"properties,omitempty"`
 	Items          *Schema            `json:"items,omitempty"`
-	Required       bool               `json:"required,omitempty"`
 	Weight         int64              `json:"weight,omitempty"`
+	Enum           Enum               `json:"enum,omitempty"`
+	Required       bool               `json:"required,omitempty"`
 	WidgetSettings WidgetSettings     `json:"widgetSettings,omitempty"` //for Object.assign to component
 }
 
@@ -32,6 +33,10 @@ func getSchema(v reflect.Value, tags map[string]string) *Schema {
 	var weight int64
 	if tags["weight"] != "" {
 		weight, _ = strconv.ParseInt(tags["weight"], 10, 64)
+	}
+	var enum Enum
+	if tags["enum"] != "" {
+		enum = strings.Split(tags["enum"], ",")
 	}
 	var required bool
 	if tags["validate"] != "" {
@@ -81,8 +86,9 @@ func getSchema(v reflect.Value, tags map[string]string) *Schema {
 		return &Schema{
 			Type:           typeName,
 			Label:          tags["label"],
-			Required:       required,
 			Weight:         weight,
+			Enum:           enum,
+			Required:       required,
 			WidgetSettings: widgetSettings,
 		}
 	} else if kind == reflect.Map {
@@ -91,8 +97,9 @@ func getSchema(v reflect.Value, tags map[string]string) *Schema {
 			return &Schema{
 				Type:           "map",
 				Label:          tags["label"],
-				Required:       required,
 				Weight:         weight,
+				Enum:           enum,
+				Required:       required,
 				WidgetSettings: widgetSettings,
 				Items:          getSchema(v.MapIndex(keys[0]), map[string]string{}),
 			}
@@ -104,8 +111,9 @@ func getSchema(v reflect.Value, tags map[string]string) *Schema {
 			schema := &Schema{
 				Type:           "array",
 				Label:          tags["label"],
-				Required:       required,
 				Weight:         weight,
+				Enum:           enum,
+				Required:       required,
 				WidgetSettings: widgetSettings,
 				Items:          getSchema(v.Index(0), map[string]string{}),
 			}
@@ -116,8 +124,9 @@ func getSchema(v reflect.Value, tags map[string]string) *Schema {
 		schema := &Schema{
 			Type:           "object",
 			Label:          tags["label"],
-			Required:       required,
 			Weight:         weight,
+			Enum:           enum,
+			Required:       required,
 			WidgetSettings: widgetSettings,
 			Properties:     map[string]*Schema{},
 		}
@@ -128,21 +137,17 @@ func getSchema(v reflect.Value, tags map[string]string) *Schema {
 			if len(fieldNameTag) > 0 && fieldNameTag[0] != "" {
 				fieldName = fieldNameTag[0]
 			}
-			label := f.Tag.Get("label")
-			vocabulary := f.Tag.Get("vocabulary")
-			widget := f.Tag.Get("widget")
-			weight := f.Tag.Get("weight")
-			validate := f.Tag.Get("validate")
 			fieldValue := v.Field(i)
 			if fieldValue.Kind() == reflect.Ptr && !fieldValue.Elem().IsValid() {
 				fieldValue = reflect.New(f.Type.Elem())
 			}
 			schema.Properties[fieldName] = getSchema(fieldValue, map[string]string{
-				"label":      label,
-				"vocabulary": vocabulary,
-				"widget":     widget,
-				"weight":     weight,
-				"validate":   validate,
+				"label":      f.Tag.Get("label"),
+				"vocabulary": f.Tag.Get("vocabulary"),
+				"widget":     f.Tag.Get("widget"),
+				"weight":     f.Tag.Get("weight"),
+				"validate":   f.Tag.Get("validate"),
+				"enum":       f.Tag.Get("enum"),
 			})
 		}
 		return schema
