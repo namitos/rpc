@@ -141,6 +141,16 @@ func getSchema(v reflect.Value, tags map[string]string) *Schema {
 			if fieldValue.Kind() == reflect.Ptr && !fieldValue.Elem().IsValid() {
 				fieldValue = reflect.New(f.Type.Elem())
 			}
+			if fieldValue.Kind() == reflect.Slice {
+				var toPush reflect.Value
+				elem := f.Type.Elem()
+				if elem.Kind() == reflect.Ptr {
+					toPush = reflect.New(f.Type.Elem().Elem())
+				} else {
+					toPush = reflect.New(f.Type.Elem()).Elem()
+				}
+				fieldValue = reflect.Append(fieldValue, toPush)
+			}
 			schema.Properties[fieldName] = getSchema(fieldValue, map[string]string{
 				"label":      f.Tag.Get("label"),
 				"vocabulary": f.Tag.Get("vocabulary"),
