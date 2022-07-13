@@ -20,15 +20,22 @@ type Schema struct {
 type WidgetSettings map[string]interface{}
 
 func Get(v reflect.Value) *Schema {
-	return getSchema(v, map[string]string{})
+	return getSchema(v, map[string]string{}, nil)
 }
 
-func getSchema(v reflect.Value, tags map[string]string) *Schema {
+func getSchema(v reflect.Value, tags map[string]string, parentTypes []reflect.Type) *Schema {
 	if !v.IsValid() {
 		return nil
 	}
 	typeOfS := v.Type()
 	kind := v.Kind()
+	for _, pt := range parentTypes {
+		if pt == typeOfS {
+			//no recursy for types
+			return nil
+		}
+	}
+	parentTypes = append(parentTypes, typeOfS)
 
 	var weight int64
 	if tags["weight"] != "" {
@@ -101,11 +108,11 @@ func getSchema(v reflect.Value, tags map[string]string) *Schema {
 				Enum:           enum,
 				Required:       required,
 				WidgetSettings: widgetSettings,
-				Items:          getSchema(v.MapIndex(keys[0]), map[string]string{}),
+				Items:          getSchema(v.MapIndex(keys[0]), map[string]string{}, parentTypes),
 			}
 		}
 	} else if kind == reflect.Ptr {
-		return getSchema(v.Elem(), tags)
+		return getSchema(v.Elem(), tags, parentTypes)
 	} else if kind == reflect.Array || kind == reflect.Slice {
 		if v.Len() > 0 {
 			schema := &Schema{
@@ -115,7 +122,7 @@ func getSchema(v reflect.Value, tags map[string]string) *Schema {
 				Enum:           enum,
 				Required:       required,
 				WidgetSettings: widgetSettings,
-				Items:          getSchema(v.Index(0), map[string]string{}),
+				Items:          getSchema(v.Index(0), map[string]string{}, parentTypes),
 			}
 			return schema
 		}
@@ -158,7 +165,7 @@ func getSchema(v reflect.Value, tags map[string]string) *Schema {
 				"weight":     f.Tag.Get("weight"),
 				"validate":   f.Tag.Get("validate"),
 				"enum":       f.Tag.Get("enum"),
-			})
+			}, parentTypes)
 		}
 		return schema
 	}
