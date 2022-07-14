@@ -30,13 +30,23 @@ type methodHandler struct {
 }
 
 func (h *methodHandler) UnmarshalInput(inputMessage json.RawMessage) (reflect.Value, error) {
-	input := reflect.New(h.InputType)
+	var input reflect.Value
+	if h.InputType == nil {
+		return input, nil
+	}
+	var inputPtr reflect.Value
+	if h.InputType.Kind() == reflect.Ptr {
+		input = reflect.New(h.InputType.Elem())
+		inputPtr = input
+	} else {
+		inputPtr = reflect.New(h.InputType)
+		input = inputPtr.Elem()
+	}
 	if inputMessage == nil {
 		return input, nil
 	}
-	err := json.Unmarshal(inputMessage, input.Interface())
-	if err != nil {
-		return reflect.Value{}, err
+	if err := json.Unmarshal(inputMessage, inputPtr.Interface()); err != nil {
+		return input, err
 	}
 	return input, nil
 }
@@ -46,17 +56,21 @@ func (h *Server) Set(name string, fn interface{}) {
 	if fnType.Kind() != reflect.Func {
 		log.Fatalf("%v should be a Func type", name)
 	}
-	in := fnType.In(0)
-	if in.Kind() != reflect.Ptr {
-		log.Fatalf("%v first argument should be a Ptr type", name)
+	var inputType reflect.Type
+	if fnType.NumIn() > 0 {
+		inputType = fnType.In(0)
 	}
-	resultType := fnType.Out(0)
-	if resultType.Kind() == reflect.Ptr {
-		resultType = resultType.Elem()
+
+	var resultType reflect.Type
+	if fnType.NumOut() > 0 {
+		resultType = fnType.Out(0)
+		if resultType.Kind() == reflect.Ptr {
+			resultType = resultType.Elem()
+		}
 	}
 	h.Store(name, &methodHandler{
 		Fn:         fn,
-		InputType:  in.Elem(),
+		InputType:  inputType,
 		ResultType: resultType,
 	})
 }
@@ -116,7 +130,7 @@ type inputPartial struct {
 type Output struct {
 	Result  interface{}  `json:"result,omitempty"`
 	Error   *OutputError `json:"error,omitempty"`
-	Jsonrpc string       `json:"jsonrpc,omitempty"`
+	JsonRPC string       `json:"jsonrpc,omitempty"`
 	ID      string       `json:"id,omitempty"`
 }
 type OutputError struct {
@@ -195,27 +209,34 @@ func (h *Server) HandleBytes(bodyBytes []byte, messageID uint64) ([]byte, error)
 			if h.Logging {
 				log.Printf("RPCServer run method: messageID %v; method %v", messageID, inputItem.Method)
 			}
+			output := &Output{}
+			results[i] = output
+
 			method, err := h.Get(inputItem.Method)
 			if err != nil {
-				results[i] = &Output{Error: &OutputError{Message: err.Error()}}
+				output.Error = &OutputError{Message: err.Error()}
 				return
 			}
 			params, err := method.UnmarshalInput(inputItem.Params)
 			if err != nil {
-				results[i] = &Output{Error: &OutputError{Message: err.Error()}}
+				log.Println("err", err)
+				output.Error = &OutputError{Message: err.Error()}
 				return
 			}
 			out := reflect.ValueOf(method.Fn).Call([]reflect.Value{params})
-			result := out[0].Interface()
-			errInterface := out[1].Interface()
-			if errInterface != nil {
-				err, ok := errInterface.(error)
-				if ok {
-					results[i] = &Output{Error: &OutputError{Message: err.Error()}}
-				}
-				return
+			if len(out) > 0 {
+				output.Result = out[0].Interface()
 			}
-			results[i] = &Output{Result: result}
+			if len(out) > 1 {
+				errInterface := out[1].Interface()
+				if errInterface != nil {
+					err, ok := errInterface.(error)
+					if ok {
+						output.Error = &OutputError{Message: err.Error()}
+					}
+					return
+				}
+			}
 		}(i, inputItem)
 	}
 	wg.Wait()
