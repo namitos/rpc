@@ -35,11 +35,17 @@ func TestSchema(t *testing.T) {
 //TODO: make real test
 func TestRPC(t *testing.T) {
 	RPCMethods := &Server{}
-	RPCMethods.Set("test", func(td *testData) *testData {
-		log.Println("received", td)
+	RPCMethods.Set("test", func() *testData {
+		now := time.Now().UnixMilli()
 		time.Sleep(time.Second)
-		return td
+		log.Println("received", now)
+		return &testData{Time: now}
 	})
+	//RPCMethods.Set("test", func(td *testData) *testData {
+	//	log.Println("received", td)
+	//	time.Sleep(time.Second)
+	//	return td
+	//})
 	//RPCMethods.Set("test", func(td testData) testData {
 	//	log.Println("received", td)
 	//	time.Sleep(15 * time.Second)

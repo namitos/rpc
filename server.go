@@ -31,9 +31,6 @@ type methodHandler struct {
 
 func (h *methodHandler) UnmarshalInput(inputMessage json.RawMessage) (reflect.Value, error) {
 	var input reflect.Value
-	if h.InputType == nil {
-		return input, nil
-	}
 	var inputPtr reflect.Value
 	if h.InputType.Kind() == reflect.Ptr {
 		input = reflect.New(h.InputType.Elem())
@@ -217,18 +214,24 @@ func (h *Server) HandleBytes(bodyBytes []byte, messageID uint64) ([]byte, error)
 				output.Error = &OutputError{Message: err.Error()}
 				return
 			}
-			params, err := method.UnmarshalInput(inputItem.Params)
-			if err != nil {
-				log.Println("err", err)
-				output.Error = &OutputError{Message: err.Error()}
-				return
+
+			var methodOut []reflect.Value
+			if method.InputType == nil {
+				methodOut = reflect.ValueOf(method.Fn).Call(nil)
+			} else {
+				params, err := method.UnmarshalInput(inputItem.Params)
+				if err != nil {
+					log.Println("err", err)
+					output.Error = &OutputError{Message: err.Error()}
+					return
+				}
+				methodOut = reflect.ValueOf(method.Fn).Call([]reflect.Value{params})
 			}
-			out := reflect.ValueOf(method.Fn).Call([]reflect.Value{params})
-			if len(out) > 0 {
-				output.Result = out[0].Interface()
+			if len(methodOut) > 0 {
+				output.Result = methodOut[0].Interface()
 			}
-			if len(out) > 1 {
-				errInterface := out[1].Interface()
+			if len(methodOut) > 1 {
+				errInterface := methodOut[1].Interface()
 				if errInterface != nil {
 					err, ok := errInterface.(error)
 					if ok {
