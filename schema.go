@@ -4,7 +4,7 @@ import (
 	"github.com/namitos/rpc/schema"
 )
 
-type Schema struct {
+type SchemaRoot struct {
 	Info struct {
 		Description string `json:"description,omitempty"`
 		License     struct {

@@ -6,8 +6,17 @@ import (
 	"strings"
 )
 
+const (
+	TypeNameMap    = "map"
+	TypeNameObject = "object"
+	TypeNameArray  = "array"
+)
+
+var ComplexTypeNames = Enum{TypeNameMap, TypeNameObject, TypeNameArray}
+
 type Schema struct {
 	Type           string             `json:"type,omitempty"`
+	TypeName       string             `json:"typeName,omitempty"`
 	Label          string             `json:"label,omitempty"`
 	Properties     map[string]*Schema `json:"properties,omitempty"`
 	Items          *Schema            `json:"items,omitempty"`
@@ -15,6 +24,7 @@ type Schema struct {
 	Enum           Enum               `json:"enum,omitempty"`
 	Required       bool               `json:"required,omitempty"`
 	WidgetSettings WidgetSettings     `json:"widgetSettings,omitempty"` //for Object.assign to component
+	Ref            string             `json:"$ref,omitempty"`
 }
 
 type WidgetSettings map[string]interface{}
@@ -102,7 +112,8 @@ func getSchema(v reflect.Value, tags map[string]string, parentTypes []reflect.Ty
 		keys := v.MapKeys()
 		if len(keys) > 0 {
 			return &Schema{
-				Type:           "map",
+				Type:           TypeNameMap,
+				TypeName:       v.Type().String(),
 				Label:          tags["label"],
 				Weight:         weight,
 				Enum:           enum,
@@ -116,7 +127,8 @@ func getSchema(v reflect.Value, tags map[string]string, parentTypes []reflect.Ty
 	} else if kind == reflect.Array || kind == reflect.Slice {
 		if v.Len() > 0 {
 			schema := &Schema{
-				Type:           "array",
+				Type:           TypeNameArray,
+				TypeName:       v.Type().String(),
 				Label:          tags["label"],
 				Weight:         weight,
 				Enum:           enum,
@@ -129,7 +141,8 @@ func getSchema(v reflect.Value, tags map[string]string, parentTypes []reflect.Ty
 	} else if kind == reflect.Struct {
 		fieldsCount := v.NumField()
 		schema := &Schema{
-			Type:           "object",
+			Type:           TypeNameObject,
+			TypeName:       v.Type().String(),
 			Label:          tags["label"],
 			Weight:         weight,
 			Enum:           enum,
@@ -139,6 +152,9 @@ func getSchema(v reflect.Value, tags map[string]string, parentTypes []reflect.Ty
 		}
 		for i := 0; i < fieldsCount; i++ {
 			f := typeOfS.Field(i)
+			if !f.IsExported() {
+				continue
+			}
 			fieldName := f.Name
 			fieldNameTag := strings.Split(f.Tag.Get("json"), ",")
 			if len(fieldNameTag) > 0 && fieldNameTag[0] != "" {

@@ -24,19 +24,20 @@ type Server struct {
 }
 
 type methodHandler struct {
-	Fn         interface{}
-	InputType  reflect.Type
-	ResultType reflect.Type
+	fn           interface{}
+	inputType    reflect.Type
+	resultType   reflect.Type
+	methodSchema *MethodSchema
 }
 
-func (h *methodHandler) UnmarshalInput(inputMessage json.RawMessage) (reflect.Value, error) {
+func (h *methodHandler) unmarshalInput(inputMessage json.RawMessage) (reflect.Value, error) {
 	var input reflect.Value
 	var inputPtr reflect.Value
-	if h.InputType.Kind() == reflect.Ptr {
-		input = reflect.New(h.InputType.Elem())
+	if h.inputType.Kind() == reflect.Ptr {
+		input = reflect.New(h.inputType.Elem())
 		inputPtr = input
 	} else {
-		inputPtr = reflect.New(h.InputType)
+		inputPtr = reflect.New(h.inputType)
 		input = inputPtr.Elem()
 	}
 	if inputMessage == nil {
@@ -54,8 +55,14 @@ func (h *Server) Set(name string, fn interface{}) {
 		log.Fatalf("%v should be a Func type", name)
 	}
 	var inputType reflect.Type
+	var params []MethodSchemaParam
 	if fnType.NumIn() > 0 {
 		inputType = fnType.In(0)
+		params = append(params, MethodSchemaParam{
+			Name:     "Params",
+			Schema:   schema.Get(reflect.New(inputType)),
+			Required: true,
+		})
 	}
 
 	var resultType reflect.Type
@@ -65,10 +72,18 @@ func (h *Server) Set(name string, fn interface{}) {
 			resultType = resultType.Elem()
 		}
 	}
+
 	h.Store(name, &methodHandler{
-		Fn:         fn,
-		InputType:  inputType,
-		ResultType: resultType,
+		fn:         fn,
+		inputType:  inputType,
+		resultType: resultType,
+		methodSchema: &MethodSchema{
+			Name:   name,
+			Params: params,
+			Result: MethodSchemaParam{
+				Schema: schema.Get(reflect.New(resultType)),
+			},
+		},
 	})
 }
 
@@ -89,18 +104,7 @@ func (h *Server) GetMethodSchema(name string) (*MethodSchema, error) {
 	if err != nil {
 		return nil, err
 	}
-	inputTypeItem := reflect.New(mh.InputType)
-	return &MethodSchema{
-		Name: name,
-		Params: []MethodSchemaParam{{
-			Name:     "Params",
-			Schema:   schema.Get(inputTypeItem),
-			Required: true,
-		}},
-		Result: MethodSchemaParam{
-			Schema: schema.Get(reflect.New(mh.ResultType)),
-		},
-	}, nil
+	return mh.methodSchema, nil
 }
 
 func (h *Server) GetAllMethods() []string {
@@ -216,16 +220,16 @@ func (h *Server) HandleBytes(bodyBytes []byte, messageID uint64) ([]byte, error)
 			}
 
 			var methodOut []reflect.Value
-			if method.InputType == nil {
-				methodOut = reflect.ValueOf(method.Fn).Call(nil)
+			if method.inputType == nil {
+				methodOut = reflect.ValueOf(method.fn).Call(nil)
 			} else {
-				params, err := method.UnmarshalInput(inputItem.Params)
+				params, err := method.unmarshalInput(inputItem.Params)
 				if err != nil {
 					log.Println("err", err)
 					output.Error = &OutputError{Message: err.Error()}
 					return
 				}
-				methodOut = reflect.ValueOf(method.Fn).Call([]reflect.Value{params})
+				methodOut = reflect.ValueOf(method.fn).Call([]reflect.Value{params})
 			}
 			if len(methodOut) > 0 {
 				output.Result = methodOut[0].Interface()
@@ -233,6 +237,10 @@ func (h *Server) HandleBytes(bodyBytes []byte, messageID uint64) ([]byte, error)
 			if len(methodOut) > 1 {
 				errInterface := methodOut[1].Interface()
 				if errInterface != nil {
+					err1, ok := errInterface.(*OutputError)
+					if ok {
+						output.Error = err1
+					}
 					err, ok := errInterface.(error)
 					if ok {
 						output.Error = &OutputError{Message: err.Error()}
