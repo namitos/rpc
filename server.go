@@ -203,7 +203,7 @@ func (h *Server) HandleBytes(bodyBytes []byte, messageID uint64) ([]byte, error)
 
 	wg := sync.WaitGroup{}
 	wg.Add(len(input))
-	results := make([]interface{}, len(input))
+	results := make([]*Output, len(input))
 	for i, inputItem := range input {
 		go func(i int, inputItem *inputPartial) {
 			defer wg.Done()
