@@ -58,12 +58,13 @@ func (h *Server) Set(name string, fn interface{}) {
 	var params []MethodSchemaParam
 	if fnType.NumIn() > 0 {
 		inputType = fnType.In(0)
+		inputTypeForSchema := inputType
 		if inputType.Kind() == reflect.Ptr {
-			inputType = inputType.Elem()
+			inputTypeForSchema = inputType.Elem()
 		}
 		params = append(params, MethodSchemaParam{
 			Name:     "Params",
-			Schema:   schema.Get(reflect.New(inputType)),
+			Schema:   schema.Get(reflect.New(inputTypeForSchema)),
 			Required: true,
 		})
 	}
