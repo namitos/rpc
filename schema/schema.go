@@ -155,6 +155,10 @@ func getSchema(v reflect.Value, tags map[string]string, parentTypes []reflect.Ty
 			if !f.IsExported() {
 				continue
 			}
+			widgetTag := f.Tag.Get("widget")
+			if widgetTag == "hidden" {
+				continue
+			}
 			fieldName := f.Name
 			fieldNameTag := strings.Split(f.Tag.Get("json"), ",")
 			if len(fieldNameTag) > 0 && fieldNameTag[0] != "" {
@@ -177,7 +181,7 @@ func getSchema(v reflect.Value, tags map[string]string, parentTypes []reflect.Ty
 			schema.Properties[fieldName] = getSchema(fieldValue, map[string]string{
 				"label":      f.Tag.Get("label"),
 				"vocabulary": f.Tag.Get("vocabulary"),
-				"widget":     f.Tag.Get("widget"),
+				"widget":     widgetTag,
 				"weight":     f.Tag.Get("weight"),
 				"validate":   f.Tag.Get("validate"),
 				"enum":       f.Tag.Get("enum"),
