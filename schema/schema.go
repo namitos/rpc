@@ -12,7 +12,7 @@ const (
 	TypeNameArray  = "array"
 )
 
-var ComplexTypeNames = Enum{TypeNameMap, TypeNameObject, TypeNameArray}
+var complexTypeNames = Enum{TypeNameMap, TypeNameObject, TypeNameArray}
 
 type Schema struct {
 	Type           string             `json:"type,omitempty"`
