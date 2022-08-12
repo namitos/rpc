@@ -125,18 +125,16 @@ func getSchema(v reflect.Value, tags map[string]string, parentTypes []reflect.Ty
 	} else if kind == reflect.Ptr {
 		return getSchema(v.Elem(), tags, parentTypes)
 	} else if kind == reflect.Array || kind == reflect.Slice {
-		if v.Len() > 0 {
-			schema := &Schema{
-				Type:           TypeNameArray,
-				TypeName:       v.Type().String(),
-				Label:          tags["label"],
-				Weight:         weight,
-				Enum:           enum,
-				Required:       required,
-				WidgetSettings: widgetSettings,
-				Items:          getSchema(v.Index(0), map[string]string{}, parentTypes),
-			}
-			return schema
+		v = appendToEmptySlice(v, typeOfS)
+		return &Schema{
+			Type:           TypeNameArray,
+			TypeName:       v.Type().String(),
+			Label:          tags["label"],
+			Weight:         weight,
+			Enum:           enum,
+			Required:       required,
+			WidgetSettings: widgetSettings,
+			Items:          getSchema(v.Index(0), map[string]string{}, parentTypes),
 		}
 	} else if kind == reflect.Struct {
 		fieldsCount := v.NumField()
@@ -159,26 +157,16 @@ func getSchema(v reflect.Value, tags map[string]string, parentTypes []reflect.Ty
 			if widgetTag == "hidden" {
 				continue
 			}
+			jsonTag := f.Tag.Get("json")
+			if jsonTag == "-" {
+				continue
+			}
 			fieldName := f.Name
 			fieldNameTag := strings.Split(f.Tag.Get("json"), ",")
 			if len(fieldNameTag) > 0 && fieldNameTag[0] != "" {
 				fieldName = fieldNameTag[0]
 			}
-			fieldValue := v.Field(i)
-			if fieldValue.Kind() == reflect.Ptr && !fieldValue.Elem().IsValid() {
-				fieldValue = reflect.New(f.Type.Elem())
-			}
-			if fieldValue.Kind() == reflect.Slice {
-				var toPush reflect.Value
-				elem := f.Type.Elem()
-				if elem.Kind() == reflect.Ptr {
-					toPush = reflect.New(f.Type.Elem().Elem())
-				} else {
-					toPush = reflect.New(f.Type.Elem()).Elem()
-				}
-				fieldValue = reflect.Append(fieldValue, toPush)
-			}
-			schema.Properties[fieldName] = getSchema(fieldValue, map[string]string{
+			schema.Properties[fieldName] = getSchema(appendToEmptySlice(v.Field(i), f.Type), map[string]string{
 				"label":      f.Tag.Get("label"),
 				"vocabulary": f.Tag.Get("vocabulary"),
 				"widget":     widgetTag,
@@ -190,4 +178,22 @@ func getSchema(v reflect.Value, tags map[string]string, parentTypes []reflect.Ty
 		return schema
 	}
 	return nil
+}
+
+//appendToEmptySlice tries to append element to empty slice
+func appendToEmptySlice(v reflect.Value, t reflect.Type) reflect.Value {
+	if v.Kind() == reflect.Ptr && !v.Elem().IsValid() {
+		v = reflect.New(t.Elem())
+	}
+	if v.Kind() == reflect.Slice {
+		var toPush reflect.Value
+		elem := t.Elem()
+		if elem.Kind() == reflect.Ptr {
+			toPush = reflect.New(t.Elem().Elem())
+		} else {
+			toPush = reflect.New(t.Elem()).Elem()
+		}
+		v = reflect.Append(v, toPush)
+	}
+	return v
 }

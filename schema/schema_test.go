@@ -10,8 +10,9 @@ import (
 //example:
 
 type TestType1 struct {
-	Zzzzz string
-	Aaa   []string
+	Zzz string
+	Aaa []string
+	Xxx map[string]float64
 }
 
 type TestType struct {
