@@ -64,7 +64,7 @@ func (h *Server) Set(name string, fn interface{}) {
 		}
 		params = append(params, MethodSchemaParam{
 			Name:     "Params",
-			Schema:   schema.Get(reflect.New(inputTypeForSchema)),
+			Schema:   schema.Get(inputTypeForSchema),
 			Required: true,
 		})
 	}
@@ -85,7 +85,7 @@ func (h *Server) Set(name string, fn interface{}) {
 			Name:   name,
 			Params: params,
 			Result: MethodSchemaParam{
-				Schema: schema.Get(reflect.New(resultType)),
+				Schema: schema.Get(resultType),
 			},
 		},
 	})
