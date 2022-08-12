@@ -24,28 +24,55 @@ type Schema struct {
 	Enum           Enum               `json:"enum,omitempty"`
 	Required       bool               `json:"required,omitempty"`
 	WidgetSettings WidgetSettings     `json:"widgetSettings,omitempty"` //for Object.assign to component
-	Ref            string             `json:"$ref,omitempty"`
 }
 
 type WidgetSettings map[string]interface{}
 
-func Get(v reflect.Value) *Schema {
-	return getSchema(v, map[string]string{}, nil)
+func Get(t reflect.Type) *Schema {
+	schema, _ := fillValue(t, map[string]string{}, nil)
+	return schema
 }
 
-func getSchema(v reflect.Value, tags map[string]string, parentTypes []reflect.Type) *Schema {
-	if !v.IsValid() {
-		return nil
+var primitiveNumberKinds = []reflect.Kind{
+	reflect.Int,
+	reflect.Int8,
+	reflect.Int16,
+	reflect.Int32,
+	reflect.Int64,
+	reflect.Uint,
+	reflect.Uint8,
+	reflect.Uint16,
+	reflect.Uint32,
+	reflect.Uint64,
+	reflect.Float32,
+	reflect.Float64,
+}
+
+func getKindPrimitiveType(kind reflect.Kind) string {
+	if kind == reflect.String {
+		return "string"
 	}
-	typeOfS := v.Type()
-	kind := v.Kind()
-	for _, pt := range parentTypes {
-		if pt == typeOfS {
-			//no recursy for types
-			return nil
+	if kind == reflect.Bool {
+		return "boolean"
+	}
+	for _, pnk := range primitiveNumberKinds {
+		if kind == pnk {
+			return "number"
 		}
 	}
-	parentTypes = append(parentTypes, typeOfS)
+	return ""
+}
+
+func fillValue(t reflect.Type, tags map[string]string, parentTypes []reflect.Type) (*Schema, reflect.Value) {
+	var v reflect.Value
+	var baseType reflect.Type
+	if t.Kind() == reflect.Ptr {
+		v = reflect.New(t.Elem())
+		baseType = t.Elem()
+	} else {
+		v = reflect.New(t).Elem()
+		baseType = t
+	}
 
 	var weight int64
 	if tags["weight"] != "" {
@@ -73,7 +100,6 @@ func getSchema(v reflect.Value, tags map[string]string, parentTypes []reflect.Ty
 	if tags["vocabulary"] != "" {
 		widgetSettings["vocabulary"] = tags["vocabulary"]
 	}
-
 	for i, setting := range widgetSettingsSplitted { //for now only flags
 		if i == 0 || setting == "" {
 			continue
@@ -97,59 +123,66 @@ func getSchema(v reflect.Value, tags map[string]string, parentTypes []reflect.Ty
 			widgetSettings[settingKV[0]] = v
 		}
 	}
+	if len(widgetSettings) == 0 {
+		widgetSettings = nil
+	}
 
-	if kind == reflect.Int64 || kind == reflect.Float64 || kind == reflect.String || kind == reflect.Bool {
-		typeName := typeOfS.String()
-		return &Schema{
-			Type:           typeName,
-			Label:          tags["label"],
-			Weight:         weight,
-			Enum:           enum,
-			Required:       required,
-			WidgetSettings: widgetSettings,
+	schemaOut := &Schema{
+		Type:           getKindPrimitiveType(baseType.Kind()),
+		TypeName:       t.String(),
+		Label:          tags["label"],
+		Weight:         weight,
+		Enum:           enum,
+		Required:       required,
+		WidgetSettings: widgetSettings,
+	}
+
+	for _, pt := range parentTypes {
+		if pt == t {
+			//no recursy for types
+			return nil, reflect.Value{}
 		}
-	} else if kind == reflect.Map {
-		keys := v.MapKeys()
-		if len(keys) > 0 {
-			return &Schema{
-				Type:           TypeNameMap,
-				TypeName:       v.Type().String(),
-				Label:          tags["label"],
-				Weight:         weight,
-				Enum:           enum,
-				Required:       required,
-				WidgetSettings: widgetSettings,
-				Items:          getSchema(v.MapIndex(keys[0]), map[string]string{}, parentTypes),
+	}
+	parentTypes = append(parentTypes, t)
+
+	if baseType.Kind() == reflect.Map {
+		schemaOut.Type = TypeNameMap
+		v = reflect.MakeMap(t)
+		keyKind := baseType.Key().Kind()
+		schema, filledValue := fillValue(baseType.Elem(), nil, parentTypes)
+		if keyKind == reflect.String {
+			v.SetMapIndex(reflect.ValueOf("q"), filledValue)
+		}
+		for _, pnk := range primitiveNumberKinds {
+			if keyKind == pnk {
+				v.SetMapIndex(reflect.ValueOf(0), filledValue)
 			}
 		}
-	} else if kind == reflect.Ptr {
-		return getSchema(v.Elem(), tags, parentTypes)
-	} else if kind == reflect.Array || kind == reflect.Slice {
-		v = appendToEmptySlice(v, typeOfS)
-		return &Schema{
-			Type:           TypeNameArray,
-			TypeName:       v.Type().String(),
-			Label:          tags["label"],
-			Weight:         weight,
-			Enum:           enum,
-			Required:       required,
-			WidgetSettings: widgetSettings,
-			Items:          getSchema(v.Index(0), map[string]string{}, parentTypes),
+		schemaOut.Items = schema
+
+	} else if baseType.Kind() == reflect.Slice {
+		schemaOut.Type = TypeNameArray
+		var vSlice reflect.Value
+		if v.Kind() == reflect.Ptr {
+			vSlice = v.Elem()
+		} else {
+			vSlice = v
 		}
-	} else if kind == reflect.Struct {
-		fieldsCount := v.NumField()
-		schema := &Schema{
-			Type:           TypeNameObject,
-			TypeName:       v.Type().String(),
-			Label:          tags["label"],
-			Weight:         weight,
-			Enum:           enum,
-			Required:       required,
-			WidgetSettings: widgetSettings,
-			Properties:     map[string]*Schema{},
+		schema, filledValue := fillValue(baseType.Elem(), nil, parentTypes)
+		vSlice = reflect.Append(vSlice, filledValue)
+		if v.Kind() == reflect.Ptr {
+			v.Elem().Set(vSlice)
+		} else {
+			v.Set(vSlice)
 		}
+		schemaOut.Items = schema
+
+	} else if baseType.Kind() == reflect.Struct {
+		schemaOut.Type = TypeNameObject
+		schemaOut.Properties = map[string]*Schema{}
+		fieldsCount := baseType.NumField()
 		for i := 0; i < fieldsCount; i++ {
-			f := typeOfS.Field(i)
+			f := baseType.Field(i)
 			if !f.IsExported() {
 				continue
 			}
@@ -162,38 +195,22 @@ func getSchema(v reflect.Value, tags map[string]string, parentTypes []reflect.Ty
 				continue
 			}
 			fieldName := f.Name
-			fieldNameTag := strings.Split(f.Tag.Get("json"), ",")
+			fieldNameTag := strings.Split(jsonTag, ",")
 			if len(fieldNameTag) > 0 && fieldNameTag[0] != "" {
 				fieldName = fieldNameTag[0]
 			}
-			schema.Properties[fieldName] = getSchema(appendToEmptySlice(v.Field(i), f.Type), map[string]string{
+			schema, _ := fillValue(f.Type, map[string]string{
 				"label":      f.Tag.Get("label"),
 				"vocabulary": f.Tag.Get("vocabulary"),
-				"widget":     widgetTag,
 				"weight":     f.Tag.Get("weight"),
 				"validate":   f.Tag.Get("validate"),
 				"enum":       f.Tag.Get("enum"),
+				"widget":     widgetTag,
 			}, parentTypes)
+			schemaOut.Properties[fieldName] = schema
 		}
-		return schema
-	}
-	return nil
-}
 
-//appendToEmptySlice tries to append element to empty slice
-func appendToEmptySlice(v reflect.Value, t reflect.Type) reflect.Value {
-	if v.Kind() == reflect.Ptr && !v.Elem().IsValid() {
-		v = reflect.New(t.Elem())
 	}
-	if v.Kind() == reflect.Slice {
-		var toPush reflect.Value
-		elem := t.Elem()
-		if elem.Kind() == reflect.Ptr {
-			toPush = reflect.New(t.Elem().Elem())
-		} else {
-			toPush = reflect.New(t.Elem()).Elem()
-		}
-		v = reflect.Append(v, toPush)
-	}
-	return v
+
+	return schemaOut, v
 }
