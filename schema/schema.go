@@ -147,34 +147,12 @@ func fillValue(t reflect.Type, tags map[string]string, parentTypes []reflect.Typ
 
 	if baseType.Kind() == reflect.Map {
 		schemaOut.Type = TypeNameMap
-		v = reflect.MakeMap(t)
-		keyKind := baseType.Key().Kind()
-		schema, filledValue := fillValue(baseType.Elem(), nil, parentTypes)
-		if keyKind == reflect.String {
-			v.SetMapIndex(reflect.ValueOf("q"), filledValue)
-		}
-		for _, pnk := range primitiveNumberKinds {
-			if keyKind == pnk {
-				v.SetMapIndex(reflect.ValueOf(0), filledValue)
-			}
-		}
+		schema, _ := fillValue(baseType.Elem(), nil, parentTypes)
 		schemaOut.Items = schema
 
 	} else if baseType.Kind() == reflect.Slice {
 		schemaOut.Type = TypeNameArray
-		var vSlice reflect.Value
-		if v.Kind() == reflect.Ptr {
-			vSlice = v.Elem()
-		} else {
-			vSlice = v
-		}
-		schema, filledValue := fillValue(baseType.Elem(), nil, parentTypes)
-		vSlice = reflect.Append(vSlice, filledValue)
-		if v.Kind() == reflect.Ptr {
-			v.Elem().Set(vSlice)
-		} else {
-			v.Set(vSlice)
-		}
+		schema, _ := fillValue(baseType.Elem(), nil, parentTypes)
 		schemaOut.Items = schema
 
 	} else if baseType.Kind() == reflect.Struct {
