@@ -270,28 +270,15 @@ func (h *Server) HandleBytes(bodyBytes []byte, messageID uint64) ([]byte, error)
 	return resultJSON, nil
 }
 
-type restError struct {
-	Message string `json:"message"`
-}
-
 func setDefaultHeaders(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 }
 
 func sendApiError(w http.ResponseWriter, err error) {
 	setDefaultHeaders(w)
-	errTxt := err.Error()
-	output, _ := json.Marshal(restError{
-		Message: errTxt,
+	output, _ := json.Marshal(Output{
+		Error: &OutputError{Message: err.Error()},
 	})
-	status := http.StatusInternalServerError
-	if errTxt == "not implemented" {
-		status = http.StatusNotImplemented
-	}
-	if errTxt == "forbidden" {
-		status = http.StatusForbidden
-	}
-	w.WriteHeader(status)
 	w.Write(output)
 }
 
