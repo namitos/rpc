@@ -218,7 +218,7 @@ func (h *Server) HandleBytes(bodyBytes []byte, messageID uint64) ([]byte, error)
 		go func(i int, inputItem *inputPartial) {
 			defer wg.Done()
 			if h.Logging.Includes(LoggingBase) {
-				log.Printf("RPCServer run method: messageID %v; method %v", messageID, inputItem.Method)
+				log.Printf("RPCServer method: %v; messageID: %v", inputItem.Method, messageID)
 			}
 			output := &Output{}
 			results[i] = output
@@ -253,6 +253,9 @@ func (h *Server) HandleBytes(bodyBytes []byte, messageID uint64) ([]byte, error)
 					err, ok := errInterface.(error)
 					if ok {
 						output.Error = &OutputError{Message: err.Error()}
+					}
+					if h.Logging.Includes(LoggingErr) {
+						log.Printf("RPCServer method: %v; messageID: %v; err: %v", inputItem.Method, messageID, errInterface)
 					}
 					return
 				}
