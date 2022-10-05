@@ -17,11 +17,17 @@ import (
 type Server struct {
 	sync.Map
 	AllowOrigins []string
-	Logging      bool
+	Logging      schema.Enum
 
 	listener net.Listener
 	closed   bool
 }
+
+const (
+	LoggingErr    = "err"
+	LoggingRPCErr = "RPCErr"
+	LoggingBase   = "base"
+)
 
 type methodHandler struct {
 	fn           interface{}
@@ -153,12 +159,12 @@ func (h *Server) handleTCPConnection(connection net.Conn) {
 	for {
 		message, messageType, messageID, length, err := packets.Parse(connection)
 		if err != nil {
-			if h.Logging {
+			if h.Logging.Includes(LoggingErr) {
 				log.Println("RPCServer packets.Parse", err)
 			}
 			return
 		}
-		if h.Logging {
+		if h.Logging.Includes(LoggingBase) {
 			log.Printf("RPCServer message: messageID %v; length %v;", messageID, length)
 		}
 		go h.handleTCPConnectionBytes(connection, message, messageType, messageID) //running different calls of single connection in different routines
@@ -168,7 +174,7 @@ func (h *Server) handleTCPConnection(connection net.Conn) {
 func (h *Server) handleTCPConnectionBytes(connection net.Conn, message []byte, messageType uint64, messageID uint64) {
 	r, err := h.HandleBytes(message, messageID)
 	if err != nil {
-		if h.Logging {
+		if h.Logging.Includes(LoggingErr) {
 			log.Println("RPCServer HandleBytes", err)
 		}
 		errJSON, _ := json.Marshal(map[string]interface{}{"error": err.Error(), "messageID": messageID})
@@ -211,7 +217,7 @@ func (h *Server) HandleBytes(bodyBytes []byte, messageID uint64) ([]byte, error)
 	for i, inputItem := range input {
 		go func(i int, inputItem *inputPartial) {
 			defer wg.Done()
-			if h.Logging {
+			if h.Logging.Includes(LoggingBase) {
 				log.Printf("RPCServer run method: messageID %v; method %v", messageID, inputItem.Method)
 			}
 			output := &Output{}
@@ -229,7 +235,6 @@ func (h *Server) HandleBytes(bodyBytes []byte, messageID uint64) ([]byte, error)
 			} else {
 				params, err := method.unmarshalInput(inputItem.Params)
 				if err != nil {
-					log.Println("err", err)
 					output.Error = &OutputError{Message: err.Error()}
 					return
 				}
@@ -333,6 +338,9 @@ func (h *Server) HandleHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		resultJSON, err := h.HandleBytes(bodyBytes, 0)
 		if err != nil {
+			if h.Logging.Includes(LoggingErr) {
+				log.Println("RPCServer HandleBytes", err)
+			}
 			sendApiError(w, err)
 			return
 		}
@@ -367,7 +375,7 @@ func (h *Server) ListenTCP(port string) error {
 		}
 		connection, err := h.listener.Accept()
 		if err != nil {
-			if h.Logging {
+			if h.Logging.Includes(LoggingErr) {
 				log.Println("connection accept error", err)
 			}
 			continue
