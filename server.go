@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"reflect"
+	"sort"
 	"sync"
 
 	"github.com/namitos/rpc/packets"
@@ -55,13 +56,13 @@ func (h *methodHandler) unmarshalInput(inputMessage json.RawMessage) (reflect.Va
 	return input, nil
 }
 
-func (h *Server) Set(name string, fn interface{}) {
+func (h *Server) Set(name string, fn interface{}, methodSchemas ...MethodSchema) {
 	fnType := reflect.ValueOf(fn).Type()
 	if fnType.Kind() != reflect.Func {
 		log.Fatalf("%v should be a Func type", name)
 	}
 	var inputType reflect.Type
-	var params []MethodSchemaParam
+	params := []MethodSchemaParam{}
 	if fnType.NumIn() > 0 {
 		inputType = fnType.In(0)
 		inputTypeForSchema := inputType
@@ -83,17 +84,25 @@ func (h *Server) Set(name string, fn interface{}) {
 		}
 	}
 
-	h.Store(name, &methodHandler{
-		fn:         fn,
-		inputType:  inputType,
-		resultType: resultType,
-		methodSchema: &MethodSchema{
+	var methodSchema *MethodSchema
+	if len(methodSchemas) == 0 {
+		methodSchema = &MethodSchema{
 			Name:   name,
 			Params: params,
-			Result: MethodSchemaParam{
-				Schema: schema.Get(resultType),
-			},
-		},
+			Result: MethodSchemaParam{Name: "result", Schema: schema.Get(resultType)},
+		}
+	} else {
+		methodSchema = &methodSchemas[0]
+		methodSchema.Name = name
+		methodSchema.Params = params
+		methodSchema.Result = MethodSchemaParam{Name: "result", Schema: schema.Get(resultType)}
+	}
+
+	h.Store(name, &methodHandler{
+		fn:           fn,
+		inputType:    inputType,
+		resultType:   resultType,
+		methodSchema: methodSchema,
 	})
 }
 
@@ -324,7 +333,21 @@ func (h *Server) HandleHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method == "GET" {
-		resultJSON, err := json.Marshal(h.GetAllMethods())
+		methodsInfo := SchemaRoot{
+			Info: SchemaRootInfo{
+				Version: "1.0.0",
+			},
+			OpenRPC: "1.2.6",
+		}
+
+		methodNames := h.GetAllMethods()
+		sort.Strings(methodNames)
+		for _, mn := range methodNames {
+			methodSchema, _ := h.GetMethodSchema(mn)
+			methodsInfo.Methods = append(methodsInfo.Methods, methodSchema)
+		}
+
+		resultJSON, err := json.MarshalIndent(methodsInfo, "", "  ")
 		if err != nil {
 			sendApiError(w, err)
 			return

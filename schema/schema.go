@@ -178,12 +178,14 @@ func fillValue(t reflect.Type, tags map[string]string, parentTypes []reflect.Typ
 				fieldName = fieldNameTag[0]
 			}
 			schema, _ := fillValue(f.Type, map[string]string{
-				"label":      f.Tag.Get("label"),
-				"vocabulary": f.Tag.Get("vocabulary"),
-				"weight":     f.Tag.Get("weight"),
-				"validate":   f.Tag.Get("validate"),
-				"enum":       f.Tag.Get("enum"),
-				"widget":     widgetTag,
+				"label":       f.Tag.Get("label"),
+				"title":       f.Tag.Get("title"),
+				"description": f.Tag.Get("description"),
+				"vocabulary":  f.Tag.Get("vocabulary"),
+				"weight":      f.Tag.Get("weight"),
+				"validate":    f.Tag.Get("validate"),
+				"enum":        f.Tag.Get("enum"),
+				"widget":      widgetTag,
 			}, parentTypes)
 			schemaOut.Properties[fieldName] = schema
 		}

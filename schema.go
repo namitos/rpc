@@ -5,24 +5,47 @@ import (
 )
 
 type SchemaRoot struct {
-	Info struct {
-		Description string `json:"description,omitempty"`
-		License     struct {
-			Name string `json:"name,omitempty"`
-			URL  string `json:"url,omitempty"`
-		} `json:"license,omitempty"`
-		Title   string `json:"title,omitempty"`
-		Version string `json:"version,omitempty"`
-	} `json:"info,omitempty"`
-	OpenRPC string          `json:"openrpc,omitempty"`
+	Info    SchemaRootInfo  `json:"info,omitempty"`
+	OpenRPC string          `json:"openrpc"`
 	Methods []*MethodSchema `json:"methods,omitempty"`
+	Servers []*SchemaServer `json:"servers,omitempty"`
+}
+
+type SchemaRootInfo struct {
+	Description string `json:"description"`
+	License     struct {
+		Name string `json:"name,omitempty"`
+		URL  string `json:"url,omitempty"`
+	} `json:"license,omitempty"`
+	Title   string `json:"title"`
+	Version string `json:"version"`
+}
+
+type SchemaServer struct {
+	Name string `json:"name,omitempty"`
+	URL  string `json:"url,omitempty"`
 }
 
 type MethodSchema struct {
-	Name    string              `json:"name,omitempty"`
-	Summary string              `json:"summary,omitempty"`
-	Params  []MethodSchemaParam `json:"params,omitempty"`
-	Result  MethodSchemaParam   `json:"result,omitempty"`
+	Name        string              `json:"name,omitempty"`
+	Summary     string              `json:"summary,omitempty"`
+	Description string              `json:"description,omitempty"`
+	Params      []MethodSchemaParam `json:"params"`
+	Result      MethodSchemaParam   `json:"result"`
+	Examples    []MethodExample     `json:"examples,omitempty"`
+}
+
+type MethodExample struct {
+	Name        string                  `json:"name,omitempty"`
+	Summary     string                  `json:"summary,omitempty"`
+	Description string                  `json:"description,omitempty"`
+	Params      []MethodExampleVariable `json:"params,omitempty"`
+	Result      MethodExampleVariable   `json:"result,omitempty"`
+}
+
+type MethodExampleVariable struct {
+	Name  string      `json:"name,omitempty"`
+	Value interface{} `json:"value,omitempty"`
 }
 
 type MethodSchemaParam struct {
