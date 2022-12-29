@@ -32,7 +32,7 @@ type MethodSchema struct {
 	Description string              `json:"description,omitempty"`
 	Params      []MethodSchemaParam `json:"params"`
 	Result      MethodSchemaParam   `json:"result"`
-	Examples    []MethodExample     `json:"examples,omitempty"`
+	Examples    MethodExamples      `json:"examples,omitempty"`
 }
 
 type MethodExample struct {
@@ -42,6 +42,19 @@ type MethodExample struct {
 	Params      []MethodExampleVariable `json:"params,omitempty"`
 	Result      MethodExampleVariable   `json:"result,omitempty"`
 }
+
+func NewMethodExample(name string, input, output interface{}) MethodExample {
+	if name == "" {
+		name = "1"
+	}
+	return MethodExample{
+		Name:   name,
+		Params: []MethodExampleVariable{{Name: "input", Value: input}},
+		Result: MethodExampleVariable{Name: "output", Value: output},
+	}
+}
+
+type MethodExamples []MethodExample
 
 type MethodExampleVariable struct {
 	Name  string      `json:"name,omitempty"`
