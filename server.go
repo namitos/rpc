@@ -326,33 +326,37 @@ func (h *Server) setCORSHeaders(w http.ResponseWriter, r *http.Request) bool {
 	return false
 }
 
-func (h *Server) HandleHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *Server) HandleOpenRPCSchema(w http.ResponseWriter, r *http.Request) {
 	write := h.setCORSHeaders(w, r)
 	if write {
 		w.Write([]byte("{}"))
 		return
 	}
-	if r.Method == "GET" {
-		methodsInfo := SchemaRoot{
-			Info: SchemaRootInfo{
-				Version: "1.0.0",
-			},
-			OpenRPC: "1.2.6",
-		}
+	methodsInfo := SchemaRoot{
+		Info: SchemaRootInfo{
+			Version: "1.0.0",
+		},
+		OpenRPC: "1.2.6",
+	}
+	methodNames := h.GetAllMethods()
+	sort.Strings(methodNames)
+	for _, mn := range methodNames {
+		methodSchema, _ := h.GetMethodSchema(mn)
+		methodsInfo.Methods = append(methodsInfo.Methods, methodSchema)
+	}
+	resultJSON, err := json.MarshalIndent(methodsInfo, "", "  ")
+	if err != nil {
+		sendApiError(w, err)
+		return
+	}
+	w.Write(resultJSON)
+	return
+}
 
-		methodNames := h.GetAllMethods()
-		sort.Strings(methodNames)
-		for _, mn := range methodNames {
-			methodSchema, _ := h.GetMethodSchema(mn)
-			methodsInfo.Methods = append(methodsInfo.Methods, methodSchema)
-		}
-
-		resultJSON, err := json.MarshalIndent(methodsInfo, "", "  ")
-		if err != nil {
-			sendApiError(w, err)
-			return
-		}
-		w.Write(resultJSON)
+func (h *Server) HandleHTTP(w http.ResponseWriter, r *http.Request) {
+	write := h.setCORSHeaders(w, r)
+	if write {
+		w.Write([]byte("{}"))
 		return
 	}
 	if r.Method == "POST" {
