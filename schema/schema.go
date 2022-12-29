@@ -33,6 +33,8 @@ type Schema struct {
 	Type           string             `json:"type,omitempty"`
 	TypeName       string             `json:"typeName,omitempty"`
 	Label          string             `json:"label,omitempty"`
+	Title          string             `json:"title,omitempty"`
+	Description    string             `json:"description,omitempty"`
 	Properties     map[string]*Schema `json:"properties,omitempty"`
 	Items          *Schema            `json:"items,omitempty"`
 	Weight         int64              `json:"weight,omitempty"`
@@ -131,6 +133,8 @@ func fillValue(t reflect.Type, tags map[string]string, parentTypes []reflect.Typ
 		Type:           getKindPrimitiveType(baseType.Kind()),
 		TypeName:       t.String(),
 		Label:          tags["label"],
+		Title:          tags["title"],
+		Description:    tags["description"],
 		Weight:         weight,
 		Enum:           enum,
 		Required:       required,
