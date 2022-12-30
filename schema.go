@@ -49,8 +49,8 @@ func NewMethodExample(name string, input, output interface{}) MethodExample {
 	}
 	return MethodExample{
 		Name:   name,
-		Params: []MethodExampleVariable{{Name: "input", Value: input}},
-		Result: MethodExampleVariable{Name: "output", Value: output},
+		Params: []MethodExampleVariable{{Name: "params", Value: input}},
+		Result: MethodExampleVariable{Name: "result", Value: output},
 	}
 }
 

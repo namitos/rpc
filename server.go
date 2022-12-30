@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"reflect"
-	"sort"
 	"sync"
 
 	"github.com/namitos/rpc/packets"
@@ -20,8 +19,9 @@ type Server struct {
 	AllowOrigins []string
 	Logging      schema.Enum
 
-	listener net.Listener
-	closed   bool
+	schemaRoot *SchemaRoot
+	listener   net.Listener
+	closed     bool
 }
 
 const (
@@ -104,6 +104,15 @@ func (h *Server) Set(name string, fn interface{}, methodSchemas ...MethodSchema)
 		resultType:   resultType,
 		methodSchema: methodSchema,
 	})
+	if h.schemaRoot == nil {
+		h.schemaRoot = &SchemaRoot{
+			Info: SchemaRootInfo{
+				Version: "1.0.0",
+			},
+			OpenRPC: "1.2.6",
+		}
+	}
+	h.schemaRoot.Methods = append(h.schemaRoot.Methods, methodSchema)
 }
 
 func (h *Server) Get(name string) (*methodHandler, error) {
@@ -332,19 +341,7 @@ func (h *Server) HandleOpenRPCSchema(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("{}"))
 		return
 	}
-	methodsInfo := SchemaRoot{
-		Info: SchemaRootInfo{
-			Version: "1.0.0",
-		},
-		OpenRPC: "1.2.6",
-	}
-	methodNames := h.GetAllMethods()
-	sort.Strings(methodNames)
-	for _, mn := range methodNames {
-		methodSchema, _ := h.GetMethodSchema(mn)
-		methodsInfo.Methods = append(methodsInfo.Methods, methodSchema)
-	}
-	resultJSON, err := json.MarshalIndent(methodsInfo, "", "  ")
+	resultJSON, err := json.MarshalIndent(h.schemaRoot, "", "  ")
 	if err != nil {
 		sendApiError(w, err)
 		return
