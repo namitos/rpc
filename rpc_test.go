@@ -32,7 +32,7 @@ func TestSchema(t *testing.T) {
 	log.Println(string(methodSchemaJSON), err)
 }
 
-//TODO: make real test
+// TODO: make real test
 func TestRPC(t *testing.T) {
 	RPCMethods := &Server{}
 	RPCMethods.Set("test", func() *testData {
@@ -85,6 +85,33 @@ func TestRPC(t *testing.T) {
 			}
 			wg.Wait()
 			log.Println("end")
+		})
+	})
+
+	select {}
+}
+
+func TestRPCError(t *testing.T) {
+	RPCMethods := &Server{}
+	RPCMethods.Set("testError", func() (interface{}, error) {
+		return nil, &OutputError{
+			Code:    123,
+			Message: "errrrrr",
+		}
+	})
+	go func() {
+		err := RPCMethods.ListenTCP("8001")
+		if err != nil {
+			log.Println(err)
+		}
+	}()
+
+	time.AfterFunc(time.Millisecond, func() {
+		client := NewTCPClient("127.0.0.1:8001")
+
+		time.AfterFunc(time.Millisecond, func() {
+			err := client.CallSingle(context.Background(), "testError", nil, nil)
+			log.Println(err)
 		})
 	})
 

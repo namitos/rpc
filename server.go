@@ -267,10 +267,11 @@ func (h *Server) HandleBytes(bodyBytes []byte, messageID uint64) ([]byte, error)
 					err1, ok := errInterface.(*OutputError)
 					if ok {
 						output.Error = err1
-					}
-					err, ok := errInterface.(error)
-					if ok {
-						output.Error = &OutputError{Message: err.Error()}
+					} else {
+						err, ok := errInterface.(error)
+						if ok {
+							output.Error = &OutputError{Message: err.Error()}
+						}
 					}
 					if h.Logging.Includes(LoggingErr) {
 						log.Printf("RPCServer method: %v; messageID: %v; err: %v", inputItem.Method, messageID, errInterface)
