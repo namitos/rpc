@@ -297,54 +297,15 @@ func (h *Server) HandleBytes(bodyBytes []byte, messageID uint64) ([]byte, error)
 	return resultJSON, nil
 }
 
-func setDefaultHeaders(w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-}
-
-func sendApiError(w http.ResponseWriter, err error) {
-	setDefaultHeaders(w)
-	output, _ := json.Marshal(Output{
-		Error: &OutputError{Message: err.Error()},
-	})
-	w.Write(output)
-}
-
-func (h *Server) setCORSHeaders(w http.ResponseWriter, r *http.Request) bool {
-	setDefaultHeaders(w)
-	headers := w.Header()
-	allowOrigins := h.AllowOrigins
-	allowOrigin := ""
-	origin := r.Header.Get("Origin")
-	if len(allowOrigins) == 0 {
-		allowOrigin = "*"
-	} else {
-		for _, o := range allowOrigins {
-			if o == origin {
-				allowOrigin = o
-				break
-			}
-		}
-	}
-	if allowOrigin != "" {
-		headers.Set("Access-Control-Allow-Origin", allowOrigin)
-	}
-	if r.Method == "OPTIONS" {
-		headers.Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
-		headers.Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
-		return true
-	}
-	return false
-}
-
 func (h *Server) HandleOpenRPCSchema(w http.ResponseWriter, r *http.Request) {
-	write := h.setCORSHeaders(w, r)
+	write := SetCORSHeaders(h.AllowOrigins, w, r)
 	if write {
 		w.Write([]byte("{}"))
 		return
 	}
 	resultJSON, err := json.MarshalIndent(h.schemaRoot, "", "  ")
 	if err != nil {
-		sendApiError(w, err)
+		SendAPIError(w, err)
 		return
 	}
 	w.Write(resultJSON)
@@ -352,7 +313,7 @@ func (h *Server) HandleOpenRPCSchema(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Server) HandleHTTP(w http.ResponseWriter, r *http.Request) {
-	write := h.setCORSHeaders(w, r)
+	write := SetCORSHeaders(h.AllowOrigins, w, r)
 	if write {
 		w.Write([]byte("{}"))
 		return
@@ -361,7 +322,7 @@ func (h *Server) HandleHTTP(w http.ResponseWriter, r *http.Request) {
 		bodyBytes, err := io.ReadAll(r.Body)
 		defer r.Body.Close()
 		if err != nil {
-			sendApiError(w, err)
+			SendAPIError(w, err)
 			return
 		}
 		resultJSON, err := h.HandleBytes(bodyBytes, 0)
@@ -369,13 +330,13 @@ func (h *Server) HandleHTTP(w http.ResponseWriter, r *http.Request) {
 			if h.Logging.Includes(LoggingErr) {
 				log.Println("RPCServer HandleBytes", err)
 			}
-			sendApiError(w, err)
+			SendAPIError(w, err)
 			return
 		}
 		w.Write(resultJSON)
 		return
 	}
-	sendApiError(w, fmt.Errorf("not implemented"))
+	SendAPIError(w, fmt.Errorf("not implemented"))
 }
 
 func (h *Server) ListenHTTP(port string) error {
