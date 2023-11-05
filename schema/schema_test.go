@@ -10,10 +10,13 @@ import (
 //example:
 
 type TestType1 struct {
-	Zzz string
-	Aaa []string
-	Xxx map[string]float64
+	Zzz  string
+	Aaa  []string
+	Aaa1 []Pair
+	Xxx  map[string]float64
 }
+
+type Pair [2]string
 
 type TestType struct {
 	Location   [2]float64         `label:"Location label" json:"location" weight:"123" validate:"required" enum:"adfs,fsdf,gdfgdh,"`

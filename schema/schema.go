@@ -154,7 +154,7 @@ func fillValue(t reflect.Type, tags map[string]string, parentTypes []reflect.Typ
 		schema, _ := fillValue(baseType.Elem(), nil, parentTypes)
 		schemaOut.Items = schema
 
-	} else if baseType.Kind() == reflect.Slice {
+	} else if baseType.Kind() == reflect.Slice || baseType.Kind() == reflect.Array {
 		schemaOut.Type = TypeNameArray
 		schema, _ := fillValue(baseType.Elem(), nil, parentTypes)
 		schemaOut.Items = schema
