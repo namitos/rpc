@@ -3,6 +3,7 @@ package rpc
 
 import (
 	"context"
+	"reflect"
 )
 
 type Client interface {
@@ -20,4 +21,18 @@ func CallSingle(client Client, ctx context.Context, method string, params interf
 		return output[0].Error
 	}
 	return nil
+}
+
+func getStructFieldByName(itemValue reflect.Value, name string) (reflect.Value, bool) {
+	if itemValue.Kind() == reflect.Ptr {
+		itemValue = itemValue.Elem()
+	}
+	if itemValue.Kind() != reflect.Struct {
+		return reflect.Value{}, false
+	}
+	f := itemValue.FieldByName(name)
+	if !f.IsValid() {
+		return reflect.Value{}, false
+	}
+	return f, true
 }
