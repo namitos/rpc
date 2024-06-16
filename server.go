@@ -145,13 +145,14 @@ func (h *Server) GetAllMethods() []string {
 }
 
 type Input struct {
+	ID      string      `json:"id,omitempty"`
 	Method  string      `json:"method"`
 	Params  interface{} `json:"params"`
 	JsonRPC string      `json:"jsonrpc,omitempty"`
-	ID      string      `json:"id,omitempty"`
 }
 
 type inputPartial struct {
+	ID     string          `json:"id,omitempty"`
 	Method string          `json:"method"`
 	Params json.RawMessage `json:"params"`
 }
@@ -238,7 +239,7 @@ func (h *Server) HandleBytes(bodyBytes []byte, messageID uint64, middlewareFn fu
 			if h.Logging.Includes(LoggingBase) {
 				log.Printf("RPCServer method: %v; messageID: %v", inputItem.Method, messageID)
 			}
-			output := &Output{}
+			output := &Output{ID: inputItem.ID}
 			results[i] = output
 
 			method, err := h.Get(inputItem.Method)
