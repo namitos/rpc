@@ -23,7 +23,7 @@ func CallSingle(client Client, ctx context.Context, method string, params interf
 	return nil
 }
 
-func getStructFieldByName(itemValue reflect.Value, name string) (reflect.Value, bool) {
+func GetStructFieldByName(itemValue reflect.Value, name string) (reflect.Value, bool) {
 	if itemValue.Kind() == reflect.Ptr {
 		itemValue = itemValue.Elem()
 	}

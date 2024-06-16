@@ -202,7 +202,7 @@ func (h *Server) handleTCPConnectionBytes(connection net.Conn, message []byte, m
 	}
 }
 
-func (h *Server) HandleBytes(bodyBytes []byte, messageID uint64, header http.Header) ([]byte, error) {
+func (h *Server) HandleBytes(bodyBytes []byte, messageID uint64, middlewareFn func(reflect.Value)) ([]byte, error) {
 	if len(bodyBytes) == 0 {
 		return nil, fmt.Errorf("zero bytes handled")
 	}
@@ -256,9 +256,8 @@ func (h *Server) HandleBytes(bodyBytes []byte, messageID uint64, header http.Hea
 					output.Error = &OutputError{Message: err.Error()}
 					return
 				}
-				headerField, headerFieldOk := getStructFieldByName(params, "Header")
-				if headerFieldOk && headerField.Type() == reflect.TypeOf(http.Header{}) {
-					headerField.Set(reflect.ValueOf(header))
+				if middlewareFn != nil {
+					middlewareFn(params)
 				}
 				methodOut = reflect.ValueOf(method.fn).Call([]reflect.Value{params})
 			}
@@ -330,7 +329,12 @@ func (h *Server) HandleHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		resultJSON, err := h.HandleBytes(bodyBytes, 0, r.Header)
+		resultJSON, err := h.HandleBytes(bodyBytes, 0, func(params reflect.Value) {
+			headerField, headerFieldOk := GetStructFieldByName(params, "Header")
+			if headerFieldOk && headerField.Type() == reflect.TypeOf(http.Header{}) {
+				headerField.Set(reflect.ValueOf(r.Header))
+			}
+		})
 		if err != nil {
 			if h.Logging.Includes(LoggingErr) {
 				log.Println("RPCServer HandleBytes", err)
