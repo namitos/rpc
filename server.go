@@ -303,7 +303,7 @@ func (h *Server) HandleBytes(bodyBytes []byte, messageID uint64, middlewareFn fu
 }
 
 func (h *Server) HandleOpenRPCSchema(w http.ResponseWriter, r *http.Request) {
-	write := SetCORSHeaders(h.AllowOrigins, w, r)
+	write := SetCORSHeaders(h.AllowOrigins, h.AllowOriginsFn, w, r)
 	if write {
 		w.Write([]byte("{}"))
 		return
@@ -318,7 +318,7 @@ func (h *Server) HandleOpenRPCSchema(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Server) HandleHTTP(w http.ResponseWriter, r *http.Request) {
-	write := SetCORSHeaders(h.AllowOrigins, w, r)
+	write := SetCORSHeaders(h.AllowOrigins, h.AllowOriginsFn, w, r)
 	if write {
 		w.Write([]byte("{}"))
 		return
