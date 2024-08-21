@@ -49,7 +49,7 @@ func WrapRPC(resultFn func(io.ReadCloser) (any, error)) func(w http.ResponseWrit
 	}
 }
 
-func SetCORSHeaders(allowOrigins []string, w http.ResponseWriter, r *http.Request) bool {
+func SetCORSHeaders(allowOrigins []string, allowOriginsFn func(host string) bool, w http.ResponseWriter, r *http.Request) bool {
 	setDefaultHeaders(w)
 	headers := w.Header()
 	allowOrigin := ""
@@ -63,6 +63,9 @@ func SetCORSHeaders(allowOrigins []string, w http.ResponseWriter, r *http.Reques
 				break
 			}
 		}
+	}
+	if allowOriginsFn != nil && allowOriginsFn(origin) {
+		allowOrigin = origin
 	}
 	if allowOrigin != "" {
 		headers.Set("Access-Control-Allow-Origin", allowOrigin)

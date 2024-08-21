@@ -16,8 +16,9 @@ import (
 
 type Server struct {
 	sync.Map
-	AllowOrigins []string
-	Logging      schema.Enum
+	AllowOrigins   []string
+	AllowOriginsFn func(host string) bool
+	Logging        schema.Enum
 
 	schemaRoot *SchemaRoot
 	listener   net.Listener
