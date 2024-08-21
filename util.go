@@ -54,17 +54,13 @@ func SetCORSHeaders(allowOrigins []string, allowOriginsFn func(host string) bool
 	headers := w.Header()
 	allowOrigin := ""
 	origin := r.Header.Get("Origin")
-	if len(allowOrigins) == 0 {
-		allowOrigin = "*"
-	} else {
-		for _, o := range allowOrigins {
-			if o == origin {
-				allowOrigin = o
-				break
-			}
+	for _, o := range allowOrigins {
+		if o == origin {
+			allowOrigin = o
+			break
 		}
 	}
-	if allowOriginsFn != nil && allowOriginsFn(origin) {
+	if allowOrigin == "" && allowOriginsFn != nil && allowOriginsFn(origin) {
 		allowOrigin = origin
 	}
 	if allowOrigin != "" {
