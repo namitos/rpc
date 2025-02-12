@@ -9,6 +9,7 @@ type SchemaRoot struct {
 	OpenRPC string          `json:"openrpc"`
 	Methods []*MethodSchema `json:"methods,omitempty"`
 	Servers []*SchemaServer `json:"servers,omitempty"`
+	Defs    schema.Map      `json:"$defs,omitempty"`
 }
 
 type SchemaRootInfo struct {

@@ -10,10 +10,11 @@ import (
 //example:
 
 type TestType1 struct {
-	Zzz  string
-	Aaa  []string
-	Aaa1 []Pair
-	Xxx  map[string]float64
+	TestType1 *TestType1 `json:"TestType1Recursive"`
+	Zzz       string
+	Aaa       []string
+	Aaa1      []Pair
+	Xxx       map[string]float64
 }
 
 type Pair [2]string
@@ -31,8 +32,12 @@ func TestGet(t *testing.T) {
 		ExampleMap: map[string]float64{"z": 123},
 	}
 
-	schemaItem := Get(reflect.TypeOf(s))
+	defs := map[string]*Schema{}
+	schemaItem := Get(reflect.TypeOf(s), nil)
+
 	schemaItemBytes, _ := json.MarshalIndent(schemaItem, "  ", "  ")
 	log.Println(string(schemaItemBytes))
-	//t.Fatal(string(schemaItemBytes))
+
+	defsBytes, _ := json.MarshalIndent(defs, "  ", "  ")
+	log.Println(string(defsBytes))
 }

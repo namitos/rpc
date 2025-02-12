@@ -12,8 +12,6 @@ const (
 	TypeNameArray  = "array"
 )
 
-var complexTypeNames = Enum{TypeNameMap, TypeNameObject, TypeNameArray}
-
 var primitiveNumberKinds = []reflect.Kind{
 	reflect.Int,
 	reflect.Int8,
@@ -30,23 +28,27 @@ var primitiveNumberKinds = []reflect.Kind{
 }
 
 type Schema struct {
-	Type           string             `json:"type,omitempty"`
-	TypeName       string             `json:"typeName,omitempty"`
-	Label          string             `json:"label,omitempty"`
-	Title          string             `json:"title,omitempty"`
-	Description    string             `json:"description,omitempty"`
-	Properties     map[string]*Schema `json:"properties,omitempty"`
-	Items          *Schema            `json:"items,omitempty"`
-	Weight         int64              `json:"weight,omitempty"`
-	Enum           Enum               `json:"enum,omitempty"`
-	Required       bool               `json:"required,omitempty"`
-	WidgetSettings WidgetSettings     `json:"widgetSettings,omitempty"` //for Object.assign to component
+	ID             string         `json:"$id,omitempty"`
+	Defs           Map            `json:"$defs,omitempty"`
+	Type           string         `json:"type,omitempty"`
+	TypeName       string         `json:"typeName,omitempty"`
+	Label          string         `json:"label,omitempty"`
+	Title          string         `json:"title,omitempty"`
+	Description    string         `json:"description,omitempty"`
+	Properties     Map            `json:"properties,omitempty"`
+	Items          *Schema        `json:"items,omitempty"`
+	Weight         int64          `json:"weight,omitempty"`
+	Enum           Enum           `json:"enum,omitempty"`
+	Required       bool           `json:"required,omitempty"`
+	WidgetSettings WidgetSettings `json:"widgetSettings,omitempty"` //for Object.assign to component
 }
+
+type Map map[string]*Schema
 
 type WidgetSettings map[string]interface{}
 
-func Get(t reflect.Type) *Schema {
-	schema, _ := fillValue(t, map[string]string{}, nil)
+func Get(t reflect.Type, defs Map) *Schema {
+	schema, _ := fillValue(t, map[string]string{}, nil, defs)
 	return schema
 }
 
@@ -65,7 +67,7 @@ func getKindPrimitiveType(kind reflect.Kind) string {
 	return ""
 }
 
-func fillValue(t reflect.Type, tags map[string]string, parentTypes []reflect.Type) (*Schema, reflect.Value) {
+func fillValue(t reflect.Type, tags map[string]string, parentTypes []reflect.Type, defs Map) (*Schema, reflect.Value) {
 	var v reflect.Value
 	var baseType reflect.Type
 	if t.Kind() == reflect.Ptr {
@@ -75,6 +77,16 @@ func fillValue(t reflect.Type, tags map[string]string, parentTypes []reflect.Typ
 		v = reflect.New(t).Elem()
 		baseType = t
 	}
+
+	for _, pt := range parentTypes {
+		if pt == t {
+			if defs != nil && baseType.Kind() == reflect.Struct {
+				return &Schema{ID: baseType.String()}, v
+			}
+			return nil, reflect.Value{}
+		}
+	}
+	parentTypes = append(parentTypes, t)
 
 	var weight int64
 	if tags["weight"] != "" {
@@ -141,27 +153,23 @@ func fillValue(t reflect.Type, tags map[string]string, parentTypes []reflect.Typ
 		WidgetSettings: widgetSettings,
 	}
 
-	for _, pt := range parentTypes {
-		if pt == t {
-			//no recursy for types
-			return nil, reflect.Value{}
-		}
-	}
-	parentTypes = append(parentTypes, t)
-
 	if baseType.Kind() == reflect.Map {
 		schemaOut.Type = TypeNameMap
-		schema, _ := fillValue(baseType.Elem(), nil, parentTypes)
+		schema, _ := fillValue(baseType.Elem(), nil, parentTypes, defs)
 		schemaOut.Items = schema
 
 	} else if baseType.Kind() == reflect.Slice || baseType.Kind() == reflect.Array {
 		schemaOut.Type = TypeNameArray
-		schema, _ := fillValue(baseType.Elem(), nil, parentTypes)
+		schema, _ := fillValue(baseType.Elem(), nil, parentTypes, defs)
 		schemaOut.Items = schema
 
 	} else if baseType.Kind() == reflect.Struct {
+		if defs != nil && defs[baseType.String()] != nil {
+			return &Schema{ID: baseType.String()}, v
+		}
+
 		schemaOut.Type = TypeNameObject
-		schemaOut.Properties = map[string]*Schema{}
+		schemaOut.Properties = Map{}
 		fieldsCount := baseType.NumField()
 		for i := 0; i < fieldsCount; i++ {
 			f := baseType.Field(i)
@@ -190,10 +198,14 @@ func fillValue(t reflect.Type, tags map[string]string, parentTypes []reflect.Typ
 				"validate":    f.Tag.Get("validate"),
 				"enum":        f.Tag.Get("enum"),
 				"widget":      widgetTag,
-			}, parentTypes)
+			}, parentTypes, defs)
 			schemaOut.Properties[fieldName] = schema
 		}
 
+		if defs != nil {
+			defs[baseType.String()] = schemaOut
+			schemaOut = &Schema{ID: baseType.String()}
+		}
 	}
 
 	return schemaOut, v
