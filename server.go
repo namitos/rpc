@@ -58,13 +58,22 @@ func (h *methodHandler) unmarshalInput(inputMessage json.RawMessage) (reflect.Va
 }
 
 func (h *Server) Set(name string, fn interface{}, methodSchemas ...MethodSchema) {
+	if h.schemaRoot == nil {
+		h.schemaRoot = &SchemaRoot{
+			Info: SchemaRootInfo{
+				Version: "1.0.0",
+			},
+			OpenRPC: "1.2.6",
+			Defs:    schema.Map{},
+		}
+	}
+
 	fnType := reflect.ValueOf(fn).Type()
 	if fnType.Kind() != reflect.Func {
 		log.Fatalf("%v should be a Func type", name)
 	}
 	var inputType reflect.Type
 	params := []MethodSchemaParam{}
-	defs := schema.Map{}
 	if fnType.NumIn() > 0 {
 		inputType = fnType.In(0)
 		inputTypeForSchema := inputType
@@ -73,7 +82,7 @@ func (h *Server) Set(name string, fn interface{}, methodSchemas ...MethodSchema)
 		}
 		params = append(params, MethodSchemaParam{
 			Name:     "Params",
-			Schema:   schema.Get(inputTypeForSchema, defs),
+			Schema:   schema.Get(inputTypeForSchema, h.schemaRoot.Defs),
 			Required: true,
 		})
 	}
@@ -91,13 +100,13 @@ func (h *Server) Set(name string, fn interface{}, methodSchemas ...MethodSchema)
 		methodSchema = &MethodSchema{
 			Name:   name,
 			Params: params,
-			Result: MethodSchemaParam{Name: "result", Schema: schema.Get(resultType, defs)},
+			Result: MethodSchemaParam{Name: "result", Schema: schema.Get(resultType, h.schemaRoot.Defs)},
 		}
 	} else {
 		methodSchema = &methodSchemas[0]
 		methodSchema.Name = name
 		methodSchema.Params = params
-		methodSchema.Result = MethodSchemaParam{Name: "result", Schema: schema.Get(resultType, defs)}
+		methodSchema.Result = MethodSchemaParam{Name: "result", Schema: schema.Get(resultType, h.schemaRoot.Defs)}
 	}
 
 	h.Store(name, &methodHandler{
@@ -106,15 +115,7 @@ func (h *Server) Set(name string, fn interface{}, methodSchemas ...MethodSchema)
 		resultType:   resultType,
 		methodSchema: methodSchema,
 	})
-	if h.schemaRoot == nil {
-		h.schemaRoot = &SchemaRoot{
-			Info: SchemaRootInfo{
-				Version: "1.0.0",
-			},
-			OpenRPC: "1.2.6",
-			Defs:    defs,
-		}
-	}
+
 	h.schemaRoot.Methods = append(h.schemaRoot.Methods, methodSchema)
 }
 
