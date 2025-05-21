@@ -30,7 +30,7 @@ type TCPClient struct {
 	counter            uint64
 }
 
-//KeepAlive recursive reconnects if disconnected
+// KeepAlive recursive reconnects if disconnected
 func (h *TCPClient) KeepAlive() {
 	log.Println("connecting to", h.URL)
 	err := h.Connect()
@@ -115,6 +115,6 @@ func (h *TCPClient) Call(ctx context.Context, input []Input, result *[]Output) e
 	}
 }
 
-func (h *TCPClient) CallSingle(ctx context.Context, method string, params interface{}, result interface{}) error {
+func (h *TCPClient) CallSingle(ctx context.Context, method string, params any, result any) error {
 	return CallSingle(h, ctx, method, params, result)
 }

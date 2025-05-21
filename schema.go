@@ -44,7 +44,7 @@ type MethodExample struct {
 	Result      MethodExampleVariable   `json:"result,omitempty"`
 }
 
-func NewMethodExample(name string, input, output interface{}) MethodExample {
+func NewMethodExample(name string, input, output any) MethodExample {
 	if name == "" {
 		name = "1"
 	}
@@ -58,8 +58,8 @@ func NewMethodExample(name string, input, output interface{}) MethodExample {
 type MethodExamples []MethodExample
 
 type MethodExampleVariable struct {
-	Name  string      `json:"name,omitempty"`
-	Value interface{} `json:"value,omitempty"`
+	Name  string `json:"name,omitempty"`
+	Value any    `json:"value,omitempty"`
 }
 
 type MethodSchemaParam struct {

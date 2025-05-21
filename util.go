@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"reflect"
 )
 
 func setDefaultHeaders(w http.ResponseWriter) {
@@ -72,4 +73,18 @@ func SetCORSHeaders(allowOrigins []string, allowOriginsFn func(host string) bool
 		return true
 	}
 	return false
+}
+
+func GetStructFieldByName(itemValue reflect.Value, name string) (reflect.Value, bool) {
+	if itemValue.Kind() == reflect.Ptr {
+		itemValue = itemValue.Elem()
+	}
+	if itemValue.Kind() != reflect.Struct {
+		return reflect.Value{}, false
+	}
+	f := itemValue.FieldByName(name)
+	if !f.IsValid() {
+		return reflect.Value{}, false
+	}
+	return f, true
 }

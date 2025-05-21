@@ -22,11 +22,11 @@ func (h *HTTPClient) Call(context context.Context, input []Input, result *[]Outp
 	return h.call(context, input, result)
 }
 
-func (h *HTTPClient) CallSingle(ctx context.Context, method string, params interface{}, result interface{}) error {
+func (h *HTTPClient) CallSingle(ctx context.Context, method string, params any, result any) error {
 	return CallSingle(h, ctx, method, params, result)
 }
 
-func (h *HTTPClient) call(context context.Context, input, result interface{}) error {
+func (h *HTTPClient) call(context context.Context, input, result any) error {
 	body, err := json.Marshal(input)
 	if err != nil {
 		return err
@@ -58,12 +58,15 @@ func (h *HTTPClient) call(context context.Context, input, result interface{}) er
 		return err
 	}
 	defer res.Body.Close()
+	body, err = io.ReadAll(res.Body)
+	if err != nil {
+		return err
+	}
 	if res.StatusCode != 200 {
-		body, err = io.ReadAll(res.Body)
-		if err != nil {
-			return err
-		}
 		return fmt.Errorf(string(body))
 	}
-	return json.NewDecoder(res.Body).Decode(result)
+	if err := json.Unmarshal(body, result); err != nil {
+		return err
+	}
+	return nil
 }

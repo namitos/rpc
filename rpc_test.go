@@ -93,7 +93,7 @@ func TestRPC(t *testing.T) {
 
 func TestRPCError(t *testing.T) {
 	RPCMethods := &Server{}
-	RPCMethods.Set("testError", func() (interface{}, error) {
+	RPCMethods.Set("testError", func() (any, error) {
 		return nil, &OutputError{
 			Code:    123,
 			Message: "errrrrr",

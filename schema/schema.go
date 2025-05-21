@@ -45,7 +45,7 @@ type Schema struct {
 
 type Map map[string]*Schema
 
-type WidgetSettings map[string]interface{}
+type WidgetSettings map[string]any
 
 func Get(t reflect.Type, defs Map) *Schema {
 	schema, _ := fillValue(t, map[string]string{}, nil, defs)

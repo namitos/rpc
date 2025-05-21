@@ -32,7 +32,7 @@ const (
 )
 
 type methodHandler struct {
-	fn           interface{}
+	fn           any
 	inputType    reflect.Type
 	resultType   reflect.Type
 	methodSchema *MethodSchema
@@ -57,7 +57,7 @@ func (h *methodHandler) unmarshalInput(inputMessage json.RawMessage) (reflect.Va
 	return input, nil
 }
 
-func (h *Server) Set(name string, fn interface{}, methodSchemas ...MethodSchema) {
+func (h *Server) Set(name string, fn any, methodSchemas ...MethodSchema) {
 	if h.schemaRoot == nil {
 		h.schemaRoot = &SchemaRoot{
 			Info: SchemaRootInfo{
@@ -141,7 +141,7 @@ func (h *Server) GetMethodSchema(name string) (*MethodSchema, error) {
 
 func (h *Server) GetAllMethods() []string {
 	var methods []string
-	h.Range(func(k, v interface{}) bool {
+	h.Range(func(k, v any) bool {
 		methods = append(methods, k.(string))
 		return true
 	})
@@ -149,10 +149,10 @@ func (h *Server) GetAllMethods() []string {
 }
 
 type Input struct {
-	ID      string      `json:"id,omitempty"`
-	Method  string      `json:"method"`
-	Params  interface{} `json:"params"`
-	JsonRPC string      `json:"jsonrpc,omitempty"`
+	ID      string `json:"id,omitempty"`
+	Method  string `json:"method"`
+	Params  any    `json:"params"`
+	JsonRPC string `json:"jsonrpc,omitempty"`
 }
 
 type inputPartial struct {
@@ -162,15 +162,15 @@ type inputPartial struct {
 }
 
 type Output struct {
-	Result  interface{}  `json:"result,omitempty"`
+	Result  any          `json:"result,omitempty"`
 	Error   *OutputError `json:"error,omitempty"`
 	JsonRPC string       `json:"jsonrpc,omitempty"`
 	ID      string       `json:"id,omitempty"`
 }
 type OutputError struct {
-	Code    int64       `json:"code,omitempty"`
-	Message string      `json:"message,omitempty"`
-	Data    interface{} `json:"data,omitempty"`
+	Code    int64  `json:"code,omitempty"`
+	Message string `json:"message,omitempty"`
+	Data    any    `json:"data,omitempty"`
 }
 
 func (e *OutputError) Error() string {
@@ -200,7 +200,7 @@ func (h *Server) handleTCPConnectionBytes(connection net.Conn, message []byte, m
 		if h.Logging.Includes(LoggingErr) {
 			log.Println("RPCServer HandleBytes", err)
 		}
-		errJSON, _ := json.Marshal(map[string]interface{}{"error": err.Error(), "messageID": messageID})
+		errJSON, _ := json.Marshal(map[string]any{"error": err.Error(), "messageID": messageID})
 		connection.Write(packets.Create(errJSON, messageType, messageID))
 	} else {
 		connection.Write(packets.Create(r, messageType, messageID))
