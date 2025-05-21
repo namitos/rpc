@@ -63,7 +63,7 @@ func (h *HTTPClient) call(ctx context.Context, input, result any) error {
 		return err
 	}
 	if res.StatusCode != 200 {
-		return fmt.Errorf(string(body))
+		return fmt.Errorf("%v %v", res.StatusCode, string(body))
 	}
 	if err := json.Unmarshal(body, result); err != nil {
 		return err
