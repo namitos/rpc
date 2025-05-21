@@ -18,20 +18,20 @@ type HTTPClient struct {
 	Transport *http.Transport
 }
 
-func (h *HTTPClient) Call(context context.Context, input []Input, result *[]Output) error {
-	return h.call(context, input, result)
+func (h *HTTPClient) Call(ctx context.Context, input []Input, result *[]Output) error {
+	return h.call(ctx, input, result)
 }
 
 func (h *HTTPClient) CallSingle(ctx context.Context, method string, params any, result any) error {
 	return CallSingle(h, ctx, method, params, result)
 }
 
-func (h *HTTPClient) call(context context.Context, input, result any) error {
+func (h *HTTPClient) call(ctx context.Context, input, result any) error {
 	body, err := json.Marshal(input)
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequestWithContext(context, "POST", h.URL, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", h.URL, bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
