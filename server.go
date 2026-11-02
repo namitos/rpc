@@ -33,6 +33,7 @@ const (
 
 type methodHandler struct {
 	fn           any
+	fnValue      reflect.Value
 	inputType    reflect.Type
 	resultType   reflect.Type
 	methodSchema *MethodSchema
@@ -111,6 +112,7 @@ func (h *Server) Set(name string, fn any, methodSchemas ...MethodSchema) {
 
 	h.Store(name, &methodHandler{
 		fn:           fn,
+		fnValue:      reflect.ValueOf(fn),
 		inputType:    inputType,
 		resultType:   resultType,
 		methodSchema: methodSchema,
@@ -179,6 +181,7 @@ func (e *OutputError) Error() string {
 }
 
 func (h *Server) handleTCPConnection(connection net.Conn) {
+	var writeMu sync.Mutex
 	for {
 		message, messageType, messageID, length, err := packets.Parse(connection)
 		if err != nil {
@@ -190,21 +193,25 @@ func (h *Server) handleTCPConnection(connection net.Conn) {
 		if h.Logging.Includes(LoggingBase) {
 			log.Printf("RPCServer message: messageID %v; length %v;", messageID, length)
 		}
-		go h.handleTCPConnectionBytes(connection, message, messageType, messageID) //running different calls of single connection in different routines
+		go h.handleTCPConnectionBytes(connection, &writeMu, message, messageType, messageID) //running different calls of single connection in different routines
 	}
 }
 
-func (h *Server) handleTCPConnectionBytes(connection net.Conn, message []byte, messageType uint64, messageID uint64) {
+func (h *Server) handleTCPConnectionBytes(connection net.Conn, writeMu *sync.Mutex, message []byte, messageType uint64, messageID uint64) {
 	r, err := h.HandleBytes(message, messageID, nil)
+	var packet []byte
 	if err != nil {
 		if h.Logging.Includes(LoggingErr) {
 			log.Println("RPCServer HandleBytes", err)
 		}
 		errJSON, _ := json.Marshal(map[string]any{"error": err.Error(), "messageID": messageID})
-		connection.Write(packets.Create(errJSON, messageType, messageID))
+		packet = packets.Create(errJSON, messageType, messageID)
 	} else {
-		connection.Write(packets.Create(r, messageType, messageID))
+		packet = packets.Create(r, messageType, messageID)
 	}
+	writeMu.Lock()
+	connection.Write(packet)
+	writeMu.Unlock()
 }
 
 func (h *Server) HandleBytes(bodyBytes []byte, messageID uint64, middlewareFn func(reflect.Value)) ([]byte, error) {
@@ -254,7 +261,7 @@ func (h *Server) HandleBytes(bodyBytes []byte, messageID uint64, middlewareFn fu
 
 			var methodOut []reflect.Value
 			if method.inputType == nil {
-				methodOut = reflect.ValueOf(method.fn).Call(nil)
+				methodOut = method.fnValue.Call(nil)
 			} else {
 				params, err := method.unmarshalInput(inputItem.Params)
 				if err != nil {
@@ -264,7 +271,7 @@ func (h *Server) HandleBytes(bodyBytes []byte, messageID uint64, middlewareFn fu
 				if middlewareFn != nil {
 					middlewareFn(params)
 				}
-				methodOut = reflect.ValueOf(method.fn).Call([]reflect.Value{params})
+				methodOut = method.fnValue.Call([]reflect.Value{params})
 			}
 			if len(methodOut) > 0 {
 				output.Result = methodOut[0].Interface()

@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sync"
 )
 
 type HTTPClient struct {
@@ -16,6 +17,25 @@ type HTTPClient struct {
 	Password  string
 	Proxy     string
 	Transport *http.Transport
+
+	initOnce   sync.Once
+	httpClient *http.Client
+}
+
+func (h *HTTPClient) init() {
+	h.initOnce.Do(func() {
+		transport := h.Transport
+		if transport == nil {
+			transport = &http.Transport{}
+		}
+		if h.Proxy != "" {
+			proxyURL, err := url.Parse(h.Proxy)
+			if err == nil {
+				transport.Proxy = http.ProxyURL(proxyURL)
+			}
+		}
+		h.httpClient = &http.Client{Transport: transport}
+	})
 }
 
 func (h *HTTPClient) Call(ctx context.Context, input []Input, result *[]Output) error {
@@ -27,6 +47,7 @@ func (h *HTTPClient) CallSingle(ctx context.Context, method string, params any, 
 }
 
 func (h *HTTPClient) call(ctx context.Context, input, result any) error {
+	h.init()
 	body, err := json.Marshal(input)
 	if err != nil {
 		return err
@@ -39,21 +60,7 @@ func (h *HTTPClient) call(ctx context.Context, input, result any) error {
 	if h.Username != "" && h.Password != "" {
 		req.SetBasicAuth(h.Username, h.Password)
 	}
-	var transport *http.Transport
-	if h.Transport == nil {
-		transport = &http.Transport{}
-	} else {
-		transport = h.Transport
-	}
-	if h.Proxy != "" {
-		proxyURL, err := url.Parse(h.Proxy)
-		if err != nil {
-			return err
-		}
-		transport.Proxy = http.ProxyURL(proxyURL)
-	}
-	httpClient := &http.Client{Transport: transport}
-	res, err := httpClient.Do(req)
+	res, err := h.httpClient.Do(req)
 	if err != nil {
 		return err
 	}

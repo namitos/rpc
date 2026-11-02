@@ -26,6 +26,7 @@ type TCPClient struct {
 
 	waitingResponses   map[uint64]chan []byte
 	waitingResponsesMu sync.Mutex
+	writeMu            sync.Mutex
 	connection         net.Conn
 	counter            uint64
 }
@@ -94,7 +95,9 @@ func (h *TCPClient) Call(ctx context.Context, input []Input, result *[]Output) e
 	msgID := h.counter
 	h.waitingResponses[msgID] = channel
 	h.waitingResponsesMu.Unlock()
+	h.writeMu.Lock()
 	h.connection.Write(packets.Create(body, 0, msgID))
+	h.writeMu.Unlock()
 	var response []byte
 	select {
 	case response = <-channel:
